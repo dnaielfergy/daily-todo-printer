@@ -3,5 +3,21 @@ __pycache__/
 .venv/
 .pytest_cache/
 *.egg-info/
+
+# Local task data
 data/*.db
+data/*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+
+# Local configuration / secrets
 .env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
