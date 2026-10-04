@@ -122,3 +122,14 @@ Current task fields intentionally stay small:
 - optional `must_do` override
 
 Do not add a large taxonomy until real use demonstrates the need.
+
+
+## Contributing
+
+Small, focused contributions are welcome. See `CONTRIBUTING.md` for development and pull request guidance.
+
+Please do not include credentials, bot tokens, personal task data, or local SQLite databases in issues or commits. See `SECURITY.md` for reporting sensitive problems.
+
+## License
+
+MIT. See `LICENSE`.
