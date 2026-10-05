@@ -21,7 +21,7 @@ class TelegramSettings:
 
 
 def load_telegram_settings(path: Path) -> TelegramSettings:
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
     telegram = data.get("telegram")
     if not isinstance(telegram, dict):
         raise ValueError("config must contain a [telegram] section")
