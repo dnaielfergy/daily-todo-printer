@@ -158,7 +158,7 @@ receipt-todo telegram
 
 ```toml
 [telegram.users."123456789"]
-alias = "daniel"
+alias = "sam"
 print_on_create = false
 ```
 
