@@ -24,23 +24,33 @@ def render_daily_text(tasks: list[Task], *, now: datetime | None = None) -> str:
             marker = "!" if task.priority_override == "must_do" else " "
             due = f"  due {task.due_at}" if task.due_at else ""
             lines.append(f"[{marker}] {task.id:03d}  {task.text}{due}")
-            if task.created_by != "daniel":
+            if task.source == "telegram":
                 lines.append(f"      from {task.created_by}")
     lines.extend([
         "",
         "-" * 42,
         f"{len(tasks)} open",
         "",
-        "Text: done 42",
-        "Text anything else to add it.",
+        "Telegram: /done 42",
+        "Send anything else to add it.",
         "=" * 42,
     ])
     return "\n".join(lines)
 
 
+def render_incoming_task(task: Task) -> str:
+    return "\n".join([
+        "-" * 42,
+        "NEW TODO",
+        "",
+        f"#{task.id:03d}",
+        task.text,
+        "",
+        f"from {task.created_by}",
+        "-" * 42,
+    ])
+
+
 def escpos_receipt(text: str) -> bytes:
-    # Initialize, print UTF-8-ish ASCII-safe content, feed, then full cut.
-    # The initial product receipt intentionally stays plain-text; typography
-    # can be designed after the physical printer spike proves dimensions.
     safe = text.encode("cp437", errors="replace")
     return ESC + b"@" + safe + b"\n\n\n" + GS + b"V\x00"
