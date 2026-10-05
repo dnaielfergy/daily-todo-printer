@@ -29,20 +29,21 @@ Linux is not required. We should only revisit Linux if physical printer testing 
 - [x] Add/list/complete CLI
 - [x] Plain 80mm receipt renderer
 - [x] Windows raw-spooler printer adapter
-- [ ] Install the NETUM 8360 Windows driver on the mini-server
-- [ ] Confirm exact Windows printer name
-- [ ] Print, feed, and cut a real test receipt
+- [x] Install the NETUM 8360 Windows driver on the mini-server
+- [x] Confirm exact Windows printer name
+- [x] Print, feed, and cut a real test receipt
 - [ ] Tune line width / cut command against the actual NS8360
 
 ### Phase 2 — messaging
 
 Start with Telegram because it is inexpensive, easy to run by long polling, and does not require a public web server.
 
-- [ ] Private bot / chat allowlist
+- [ ] Private bot with an allowlist of Telegram user IDs
+- [ ] Map each allowed user to a local alias used as task `created_by`
 - [ ] Plain messages create tasks
 - [ ] `done 42` completes a task
 - [ ] `add ...`, `cancel ...`, `list`, `print`
-- [ ] Wife-created tasks can print immediately
+- [ ] New tasks from configured allowed users can print immediately
 - [ ] Run the listener at Windows startup
 
 ### Phase 3 — daily ritual
