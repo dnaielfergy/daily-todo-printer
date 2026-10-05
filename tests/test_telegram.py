@@ -58,6 +58,20 @@ print_on_create = true
         self.assertEqual(settings.users[123456].alias, "sam")
         self.assertTrue(settings.users[123456].print_on_create)
 
+    def test_config_accepts_utf8_bom_from_windows_powershell(self) -> None:
+        path = Path(self.tmp.name) / "config-bom.toml"
+        path.write_text(
+            """[telegram]
+bot_token = "abc"
+
+[telegram.users."123456"]
+alias = "sam"
+""",
+            encoding="utf-8-sig",
+        )
+        settings = load_telegram_settings(path)
+        self.assertEqual(settings.users[123456].alias, "sam")
+
     def test_unauthorized_user_cannot_read_or_mutate_tasks(self) -> None:
         result = self.handler.handle(update(1, 999, "/list"))
         self.assertIn("Not authorized", result.reply or "")
