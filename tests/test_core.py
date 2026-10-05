@@ -24,10 +24,10 @@ class CoreTests(unittest.TestCase):
         self.assertEqual([t.id for t in list_open_tasks(self.conn)], [first.id])
 
     def test_receipt_has_stable_task_ids(self) -> None:
-        task = add_task(self.conn, "Pick up milk", created_by="wife", source="telegram")
+        task = add_task(self.conn, "Pick up milk", created_by="alex", source="telegram")
         text = render_daily_text(list_open_tasks(self.conn), now=datetime(2026, 10, 4, 8, 0))
         self.assertIn(f"{task.id:03d}", text)
-        self.assertIn("from wife", text)
+        self.assertIn("from alex", text)
         self.assertTrue(escpos_receipt(text).endswith(b"\x1dV\x00"))
 
 
