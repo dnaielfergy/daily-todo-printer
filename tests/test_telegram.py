@@ -26,7 +26,7 @@ class TelegramTests(unittest.TestCase):
         self.settings = TelegramSettings(
             bot_token="test-token",
             users={
-                101: TelegramUser(alias="daniel"),
+                101: TelegramUser(alias="sam"),
                 202: TelegramUser(alias="alex", print_on_create=True),
             },
             printer_name="TEST PRINTER",
@@ -69,7 +69,7 @@ print_on_create = true
         tasks = list_open_tasks(self.conn)
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0].text, "Buy dog food")
-        self.assertEqual(tasks[0].created_by, "daniel")
+        self.assertEqual(tasks[0].created_by, "sam")
         self.assertEqual(tasks[0].source, "telegram")
         self.assertEqual(result.reply, f"Added #{tasks[0].id}: Buy dog food")
 
