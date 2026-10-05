@@ -5,7 +5,7 @@ poll_timeout = 30
 
 # Keys are Telegram numeric user IDs. Aliases become Task.created_by.
 [telegram.users."123456789"]
-alias = "daniel"
+alias = "sam"
 print_on_create = false
 
 [telegram.users."987654321"]
