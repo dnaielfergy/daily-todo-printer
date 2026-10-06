@@ -38,24 +38,24 @@ Linux is not required. We should only revisit Linux if physical printer testing 
 
 Start with Telegram because it is inexpensive, easy to run by long polling, and does not require a public web server.
 
-- [ ] Private bot with an allowlist of Telegram user IDs
-- [ ] Map each allowed user to a local alias used as task `created_by`
-- [ ] Plain messages create tasks
-- [ ] `/done 42` completes a task
-- [ ] `/add ...`, `/cancel ...`, `/list`, `/print`
-- [ ] New tasks from configured allowed users can print immediately
-- [ ] Run the listener at Windows startup
+- [x] Private bot with an allowlist of Telegram user IDs
+- [x] Map each allowed user to a local alias used as task `created_by`
+- [x] Plain messages create tasks
+- [x] `/done 42` completes a task
+- [x] `/add ...`, `/cancel ...`, `/list`, `/print`
+- [x] New tasks from configured allowed users can print immediately
+- [x] Run the listener at Windows startup
 
 ### Phase 3 — daily ritual
 
-- [ ] Windows Task Scheduler invokes morning planning/printing
-- [ ] Carry unfinished work forward automatically
-- [ ] Record daily plan selections separately from task truth
+- [x] Windows Task Scheduler invokes morning planning/printing
+- [x] Carry unfinished work forward automatically
+- [x] Record daily plan selections separately from task truth
 - [ ] Refine the physical receipt hierarchy and density
 
 ### Phase 4 — AI prioritization
 
-The planner receives factual state (open tasks, age, deadlines, explicit must-do flags, creator, recent plan history, and optionally calendar context) and returns an ordered daily plan.
+The planner receives factual state (open tasks, age, deadlines, explicit priority, creator, recent plan history, and optionally calendar context) and returns an ordered daily plan.
 
 Important constraints:
 
@@ -79,7 +79,7 @@ Add and inspect tasks:
 
 ```powershell
 receipt-todo add "Call dentist"
-receipt-todo add "Send proposal" --must-do --due 2026-10-05
+receipt-todo add "Send proposal" --priority high --due 2026-10-05
 receipt-todo list
 receipt-todo done 1
 receipt-todo preview
@@ -129,6 +129,9 @@ Supported commands:
 /done 12 13 14
 /cancel 12
 /cancel 12 13
+/priority 12 high
+/due 12 2026-10-10
+/due 12 clear
 /list
 /print
 /help
@@ -182,6 +185,59 @@ After the real Telegram flow is validated, open PowerShell as Administrator and 
 
 The scheduled task runs at Windows startup as `SYSTEM`, restarts after failures, and invokes `scripts\run-telegram.ps1` from the repository so the SQLite database stays at `data/tasks.db`.
 
+## Daily morning receipt
+
+Task priority is explicit task truth:
+
+- `low`
+- `medium` (default)
+- `high`
+
+Due dates are optional and use `YYYY-MM-DD`.
+
+Set them from the CLI:
+
+```powershell
+receipt-todo priority 42 high
+receipt-todo due 42 2026-10-10
+receipt-todo due 42 clear
+```
+
+Configure how many tasks appear on the daily receipt in `config.local.toml`:
+
+```toml
+[daily]
+max_items = 10
+```
+
+The deterministic planner ranks every open task before applying `max_items`. It combines explicit priority with deadline urgency, then uses deadline state, due date, creation time, and stable task ID as tie breakers.
+
+Preview today's persisted plan:
+
+```powershell
+receipt-todo daily --preview
+```
+
+Print it once:
+
+```powershell
+receipt-todo daily
+```
+
+A second normal invocation on the same day does not print a duplicate. To deliberately reprint:
+
+```powershell
+receipt-todo daily --force
+```
+
+Install the native Windows daily task from an elevated PowerShell session, passing the desired 24-hour local time:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-daily-task.ps1 -At "08:00"
+```
+
+The deterministic rank is persisted separately from task truth. Daily plan items also reserve nullable `ai_rank` and `final_rank` fields so a later local AI model can replace the ordering while deterministic ranking remains the fallback.
+
 ## Data
 
 The default database is `data/tasks.db` and is ignored by git. Backing up that single file backs up the core todo state.
@@ -191,10 +247,10 @@ Current task fields intentionally stay small:
 - text
 - status
 - created/completed timestamps
+- explicit priority (`low`, `medium`, `high`)
 - optional due date
 - creator
 - source
-- optional `must_do` override
 
 Do not add a large taxonomy until real use demonstrates the need.
 

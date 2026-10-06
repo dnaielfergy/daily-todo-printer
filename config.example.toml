@@ -11,3 +11,9 @@ print_on_create = false
 [telegram.users."987654321"]
 alias = "alex"
 print_on_create = true
+
+
+[daily]
+max_items = 10
+# Optional. If omitted, daily printing reuses telegram.printer_name.
+# printer_name = "YOUR EXACT WINDOWS PRINTER NAME"

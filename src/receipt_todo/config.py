@@ -20,8 +20,20 @@ class TelegramSettings:
     poll_timeout: int = 30
 
 
+@dataclass(frozen=True)
+class DailySettings:
+    max_items: int = 10
+    printer_name: str | None = None
+
+
+def _load_config(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return tomllib.loads(path.read_text(encoding="utf-8-sig"))
+
+
 def load_telegram_settings(path: Path) -> TelegramSettings:
-    data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+    data = _load_config(path)
     telegram = data.get("telegram")
     if not isinstance(telegram, dict):
         raise ValueError("config must contain a [telegram] section")
@@ -61,3 +73,22 @@ def load_telegram_settings(path: Path) -> TelegramSettings:
         printer_name=printer_name,
         poll_timeout=poll_timeout,
     )
+
+
+def load_daily_settings(path: Path) -> DailySettings:
+    data = _load_config(path)
+    daily = data.get("daily", {})
+    if not isinstance(daily, dict):
+        raise ValueError("daily must be a table")
+
+    max_items = int(daily.get("max_items", 10))
+    if max_items < 1:
+        raise ValueError("daily.max_items must be at least 1")
+
+    printer_name = str(daily.get("printer_name", "")).strip() or None
+    if printer_name is None:
+        telegram = data.get("telegram", {})
+        if isinstance(telegram, dict):
+            printer_name = str(telegram.get("printer_name", "")).strip() or None
+
+    return DailySettings(max_items=max_items, printer_name=printer_name)

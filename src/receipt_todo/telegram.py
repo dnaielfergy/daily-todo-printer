@@ -18,6 +18,8 @@ from .db import (
     list_open_tasks,
     record_telegram_update,
     set_state_int,
+    set_task_due_date,
+    set_task_priority,
 )
 from .printer import print_raw_windows
 from .receipt import escpos_receipt, render_daily_text, render_incoming_task
@@ -28,6 +30,9 @@ HELP_TEXT = "\n".join([
     "/add Buy milk",
     "/done 12",
     "/cancel 12",
+    "/priority 12 high",
+    "/due 12 2026-10-10",
+    "/due 12 clear",
     "/list",
     "/print",
     "/help",
@@ -91,6 +96,16 @@ def _task_ids(parts: list[str], command: str) -> list[int]:
             raise ValueError(f"Invalid task ID: {raw}")
         ids.append(task_id)
     return ids
+
+
+def _task_id(raw: str) -> int:
+    try:
+        task_id = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"Invalid task ID: {raw}") from exc
+    if task_id < 1:
+        raise ValueError(f"Invalid task ID: {raw}")
+    return task_id
 
 
 class TelegramHandler:
@@ -177,13 +192,32 @@ class TelegramHandler:
             record_telegram_update(self.conn, update_id, reply)
             return reply
 
+        if command == "priority":
+            if len(args) != 2:
+                raise ValueError("Usage: /priority <id> low|medium|high")
+            task = set_task_priority(self.conn, _task_id(args[0]), args[1])
+            reply = f"Priority #{task.id}: {task.priority}"
+            record_telegram_update(self.conn, update_id, reply)
+            return reply
+
+        if command == "due":
+            if len(args) != 2:
+                raise ValueError("Usage: /due <id> YYYY-MM-DD|clear")
+            due_at = None if args[1].lower() == "clear" else args[1]
+            task = set_task_due_date(self.conn, _task_id(args[0]), due_at)
+            reply = f"Due #{task.id}: {task.due_at or 'none'}"
+            record_telegram_update(self.conn, update_id, reply)
+            return reply
+
         if command == "list":
             tasks = list_open_tasks(self.conn)
             if not tasks:
                 reply = "No open tasks."
             else:
                 lines = ["OPEN TASKS", ""]
-                lines.extend(f"#{task.id} {task.text}" for task in tasks)
+                for task in tasks:
+                    due = f" · due {task.due_at}" if task.due_at else ""
+                    lines.append(f"#{task.id} [{task.priority}] {task.text}{due}")
                 lines.extend(["", f"{len(tasks)} open"])
                 reply = "\n".join(lines)
             record_telegram_update(self.conn, update_id, reply)
