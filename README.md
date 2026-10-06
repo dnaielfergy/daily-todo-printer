@@ -11,7 +11,7 @@ Target printer: **NETUM NS8360 / NT-8360 family**.
 3. Incoming tasks from other people can print immediately as small physical tickets.
 4. Each morning, a planner selects and orders today's work.
 5. The daily plan prints on the receipt printer.
-6. Stable printed task IDs make explicit completion reliable: `done 42`.
+6. Stable printed task IDs make explicit completion reliable: `/done 42`.
 7. An eventual AI planner can prioritize the day, but never owns task state.
 
 ## Why Windows-native
@@ -41,8 +41,8 @@ Start with Telegram because it is inexpensive, easy to run by long polling, and 
 - [ ] Private bot with an allowlist of Telegram user IDs
 - [ ] Map each allowed user to a local alias used as task `created_by`
 - [ ] Plain messages create tasks
-- [ ] `done 42` completes a task
-- [ ] `add ...`, `cancel ...`, `list`, `print`
+- [ ] `/done 42` completes a task
+- [ ] `/add ...`, `/cancel ...`, `/list`, `/print`
 - [ ] New tasks from configured allowed users can print immediately
 - [ ] Run the listener at Windows startup
 
@@ -107,6 +107,80 @@ You can also pass the name directly:
 ```powershell
 receipt-todo print --printer-name "YOUR EXACT PRINTER NAME"
 ```
+
+
+## Telegram setup
+
+Telegram is the first remote task-capture interface. It uses long polling, so the Windows server does not need a public webhook or inbound internet port.
+
+### Commands
+
+Anything that is not a slash command becomes a new todo:
+
+```text
+Buy dog food
+```
+
+Supported commands:
+
+```text
+/add Buy dog food
+/done 12
+/done 12 13 14
+/cancel 12
+/cancel 12 13
+/list
+/print
+/help
+/whoami
+```
+
+Telegram numeric user IDs are allowlisted and mapped to local aliases. The alias is saved as the task's `created_by`.
+
+### Configure the bot
+
+1. Create a bot with Telegram's BotFather and copy the bot token.
+2. Copy the example config:
+
+```powershell
+Copy-Item config.example.toml config.local.toml
+```
+
+3. Edit `config.local.toml` with the bot token and the exact Windows printer name. This file is ignored by git.
+4. To discover your Telegram numeric user ID, start the listener before adding your real ID to the allowlist:
+
+```powershell
+receipt-todo telegram
+```
+
+5. Send the bot any message. It will refuse access but reply with your numeric Telegram user ID.
+6. Add that ID to `config.local.toml` with an alias:
+
+```toml
+[telegram.users."123456789"]
+alias = "sam"
+print_on_create = false
+```
+
+Add more allowed users by adding more `telegram.users` tables. Set `print_on_create = true` for any user whose new tasks should immediately print a small incoming-task ticket.
+
+The bot token may alternatively be supplied through `TELEGRAM_BOT_TOKEN`, which overrides the token in the config file.
+
+### Run continuously on Windows
+
+Test the listener manually first:
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe telegram --config config.local.toml
+```
+
+After the real Telegram flow is validated, open PowerShell as Administrator and install the included startup task:
+
+```powershell
+.\scripts\install-telegram-task.ps1
+```
+
+The scheduled task runs at Windows startup as `SYSTEM`, restarts after failures, and invokes `scripts\run-telegram.ps1` from the repository so the SQLite database stays at `data/tasks.db`.
 
 ## Data
 

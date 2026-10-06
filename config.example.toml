@@ -1,0 +1,13 @@
+[telegram]
+bot_token = "PASTE_BOTFATHER_TOKEN_HERE"
+printer_name = "YOUR EXACT WINDOWS PRINTER NAME"
+poll_timeout = 30
+
+# Keys are Telegram numeric user IDs. Aliases become Task.created_by.
+[telegram.users."123456789"]
+alias = "sam"
+print_on_create = false
+
+[telegram.users."987654321"]
+alias = "alex"
+print_on_create = true

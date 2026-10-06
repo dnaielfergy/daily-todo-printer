@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .config import load_telegram_settings
 from .db import DEFAULT_DB, add_task, complete_task, connect, list_open_tasks
 from .printer import print_raw_windows
 from .receipt import escpos_receipt, render_daily_text
+from .telegram import run_listener
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     add = sub.add_parser("add", help="Add a task")
     add.add_argument("text")
     add.add_argument("--due")
-    add.add_argument("--by", default="daniel")
+    add.add_argument("--by", default="local")
     add.add_argument("--source", default="cli")
     add.add_argument("--must-do", action="store_true")
 
@@ -29,6 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     printer = sub.add_parser("print", help="Print today's receipt on Windows")
     printer.add_argument("--printer-name")
+
+    telegram = sub.add_parser("telegram", help="Run the Telegram listener")
+    telegram.add_argument("--config", type=Path, default=Path("config.local.toml"))
     return parser
 
 
@@ -51,6 +56,10 @@ def main() -> None:
     if args.command == "done":
         task = complete_task(conn, args.id)
         print(f"Done #{task.id}: {task.text}")
+        return
+
+    if args.command == "telegram":
+        run_listener(conn, load_telegram_settings(args.config))
         return
 
     tasks = list_open_tasks(conn)
