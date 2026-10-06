@@ -85,6 +85,7 @@ alias = "sam"
         self.assertEqual(tasks[0].text, "Buy dog food")
         self.assertEqual(tasks[0].created_by, "sam")
         self.assertEqual(tasks[0].source, "telegram")
+        self.assertEqual(tasks[0].priority, "medium")
         self.assertEqual(result.reply, f"Added #{tasks[0].id}: Buy dog food")
 
     def test_done_and_cancel_commands(self) -> None:
@@ -117,6 +118,23 @@ alias = "sam"
     def test_non_printing_user_does_not_print_on_create(self) -> None:
         self.handler.handle(update(9, 101, "Silent task"))
         self.assertEqual(self.prints, [])
+
+    def test_priority_and_due_commands(self) -> None:
+        created = self.handler.handle(update(12, 101, "Plan the trip"))
+        task_id = int(created.reply.split("#", 1)[1].split(":", 1)[0])
+
+        priority = self.handler.handle(update(13, 101, f"/priority {task_id} high"))
+        due = self.handler.handle(update(14, 101, f"/due {task_id} 2026-10-10"))
+
+        self.assertEqual(priority.reply, f"Priority #{task_id}: high")
+        self.assertEqual(due.reply, f"Due #{task_id}: 2026-10-10")
+        task = get_task(self.conn, task_id)
+        self.assertEqual(task.priority, "high")
+        self.assertEqual(task.due_at, "2026-10-10")
+
+        cleared = self.handler.handle(update(15, 101, f"/due {task_id} clear"))
+        self.assertEqual(cleared.reply, f"Due #{task_id}: none")
+        self.assertIsNone(get_task(self.conn, task_id).due_at)
 
     def test_print_command_uses_daily_receipt(self) -> None:
         self.handler.handle(update(10, 101, "Task to print"))
