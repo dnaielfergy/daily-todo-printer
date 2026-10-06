@@ -48,14 +48,14 @@ Start with Telegram because it is inexpensive, easy to run by long polling, and 
 
 ### Phase 3 — daily ritual
 
-- [ ] Windows Task Scheduler invokes morning planning/printing
-- [ ] Carry unfinished work forward automatically
-- [ ] Record daily plan selections separately from task truth
+- [x] Windows Task Scheduler invokes morning planning/printing
+- [x] Carry unfinished work forward automatically
+- [x] Record daily plan selections separately from task truth
 - [ ] Refine the physical receipt hierarchy and density
 
 ### Phase 4 — AI prioritization
 
-The planner receives factual state (open tasks, age, deadlines, explicit must-do flags, creator, recent plan history, and optionally calendar context) and returns an ordered daily plan.
+The planner receives factual state (open tasks, age, deadlines, explicit priority, creator, recent plan history, and optionally calendar context) and returns an ordered daily plan.
 
 Important constraints:
 
