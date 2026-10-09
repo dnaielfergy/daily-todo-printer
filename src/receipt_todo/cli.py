@@ -4,7 +4,7 @@ import argparse
 from datetime import date
 from pathlib import Path
 
-from .ai import run_kev_ranking
+from .ai import run_kev_consensus
 from .ai_benchmark import load_benchmark_cases, run_benchmark, run_stability
 from .config import load_ai_settings, load_daily_settings, load_telegram_settings
 from .db import (
@@ -77,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run several option permutations and report rank/cutoff stability",
     )
+    ai_eval.add_argument(
+        "--max-items",
+        type=int,
+        help="Override daily.max_items for evaluation-only cutoff stability",
+    )
 
     ai_benchmark = sub.add_parser(
         "ai-benchmark",
@@ -108,7 +113,7 @@ def _build_ai_ranker(config_path: Path):
         return None
 
     def ranker(tasks, today):
-        return run_kev_ranking(
+        return run_kev_consensus(
             tasks,
             today=today,
             python_path=settings.python_path,
@@ -230,10 +235,13 @@ def main() -> None:
         stability = None
         if args.stability:
             daily_settings = load_daily_settings(config_path)
+            max_items = args.max_items or daily_settings.max_items
+            if max_items < 1:
+                raise ValueError("--max-items must be at least 1")
             stability = run_stability(
                 deterministic,
                 today=today,
-                max_items=daily_settings.max_items,
+                max_items=max_items,
                 python_path=settings.python_path,
                 bridge_path=settings.bridge_path,
                 model=settings.model,
@@ -242,7 +250,7 @@ def main() -> None:
             )
             result = stability.ranking
         else:
-            result = run_kev_ranking(
+            result = run_kev_consensus(
                 deterministic,
                 today=today,
                 python_path=settings.python_path,
@@ -289,10 +297,11 @@ def main() -> None:
 
         if stability:
             daily_settings = load_daily_settings(config_path)
+            max_items = args.max_items or daily_settings.max_items
             print("")
             print(f"Stable winner: {'yes' if stability.stable_top else 'NO'}")
             print(
-                f"Stable printed set (top {min(daily_settings.max_items, len(tasks))}): "
+                f"Stable printed set (top {min(max_items, len(tasks))}): "
                 f"{'yes' if stability.stable_selected_set else 'NO'}"
             )
             print(
