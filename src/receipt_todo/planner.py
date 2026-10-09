@@ -11,6 +11,7 @@ from .receipt import escpos_receipt, render_daily_text
 
 
 PRIORITY_SCORE = {"low": 1, "medium": 2, "high": 3}
+AIRanker = Callable[[list[Task], date], list[int] | None]
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,35 @@ def rank_tasks(tasks: list[Task], *, today: date | None = None) -> list[Task]:
     return sorted(tasks, key=sort_key)
 
 
+def _ai_rank_map(
+    deterministic: list[Task],
+    *,
+    today: date,
+    ai_ranker: AIRanker | None,
+    on_ai_error: Callable[[str], None] | None,
+) -> dict[int, int] | None:
+    if ai_ranker is None or not deterministic:
+        return None
+
+    try:
+        order = ai_ranker(list(deterministic), today)
+    except Exception as exc:
+        if on_ai_error is not None:
+            on_ai_error(str(exc))
+        return None
+
+    if order is None:
+        return None
+
+    expected = [task.id for task in deterministic]
+    if len(order) != len(expected) or len(set(order)) != len(order) or set(order) != set(expected):
+        if on_ai_error is not None:
+            on_ai_error("AI ranking did not contain every candidate exactly once")
+        return None
+
+    return {task_id: index for index, task_id in enumerate(order, start=1)}
+
+
 def _load_plan(conn: sqlite3.Connection, row: sqlite3.Row) -> DailyPlan:
     item_rows = conn.execute(
         """
@@ -134,6 +164,8 @@ def get_or_create_daily_plan(
     *,
     max_items: int,
     plan_date: date | None = None,
+    ai_ranker: AIRanker | None = None,
+    on_ai_error: Callable[[str], None] | None = None,
 ) -> DailyPlan:
     if max_items < 1:
         raise ValueError("daily.max_items must be at least 1")
@@ -143,7 +175,17 @@ def get_or_create_daily_plan(
     if existing is not None:
         return existing
 
-    ranked = rank_tasks(list_open_tasks(conn), today=plan_date)
+    deterministic = rank_tasks(list_open_tasks(conn), today=plan_date)
+    deterministic_rank = {
+        task.id: index for index, task in enumerate(deterministic, start=1)
+    }
+    ai_rank = _ai_rank_map(
+        deterministic,
+        today=plan_date,
+        ai_ranker=ai_ranker,
+        on_ai_error=on_ai_error,
+    )
+
     with conn:
         cursor = conn.execute(
             """
@@ -153,16 +195,26 @@ def get_or_create_daily_plan(
             (plan_date.isoformat(), _now(), max_items),
         )
         plan_id = int(cursor.lastrowid)
-        for index, task in enumerate(ranked, start=1):
+        for task in deterministic:
+            deterministic_position = deterministic_rank[task.id]
+            ai_position = None if ai_rank is None else ai_rank[task.id]
+            final_position = ai_position or deterministic_position
             conn.execute(
                 """
                 INSERT INTO daily_plan_items (
                     plan_id, task_id, deterministic_rank, ai_rank,
                     final_rank, included
                 )
-                VALUES (?, ?, ?, NULL, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (plan_id, task.id, index, index, int(index <= max_items)),
+                (
+                    plan_id,
+                    task.id,
+                    deterministic_position,
+                    ai_position,
+                    final_position,
+                    int(final_position <= max_items),
+                ),
             )
 
     created = get_daily_plan(conn, plan_date=plan_date)
@@ -197,11 +249,15 @@ def print_daily_plan(
     plan_date: date | None = None,
     force: bool = False,
     print_func: Callable[[bytes, str | None], None] = print_raw_windows,
+    ai_ranker: AIRanker | None = None,
+    on_ai_error: Callable[[str], None] | None = None,
 ) -> tuple[DailyPlan, bool]:
     plan = get_or_create_daily_plan(
         conn,
         max_items=max_items,
         plan_date=plan_date,
+        ai_ranker=ai_ranker,
+        on_ai_error=on_ai_error,
     )
     if plan.printed_at is not None and not force:
         return plan, False
