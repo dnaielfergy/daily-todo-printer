@@ -5,7 +5,7 @@ from datetime import date
 import json
 from pathlib import Path
 
-from .ai import AIRanking, run_kev_batch
+from .ai import AIRanking, consensus_ranking, kev_option_permutations, run_kev_batch
 from .db import Task
 from .planner import rank_tasks
 
@@ -96,21 +96,7 @@ def _passes(order: list[int], expectations: list[tuple[int, int]]) -> bool:
 
 
 def _permutations(tasks: list[Task]) -> list[list[Task]]:
-    candidates = [
-        list(tasks),
-        list(reversed(tasks)),
-        list(tasks[1:] + tasks[:1]),
-        list(tasks[::2] + tasks[1::2]),
-        list(tasks[1::2] + tasks[::2]),
-    ]
-    unique: list[list[Task]] = []
-    seen: set[tuple[int, ...]] = set()
-    for permutation in candidates:
-        ids = tuple(task.id for task in permutation)
-        if ids not in seen:
-            seen.add(ids)
-            unique.append(permutation)
-    return unique
+    return kev_option_permutations(tasks)
 
 
 def _pairwise_agreement(reference: list[int], candidate: list[int]) -> float:
@@ -158,11 +144,11 @@ def run_benchmark(
 
     results: list[BenchmarkResult] = []
     for case in cases:
-        original = rankings[f"{case.case_id}::p0"]
         variants = [
             rankings[f"{case.case_id}::p{index}"]
             for index in range(permutation_counts[case.case_id])
         ]
+        original = consensus_ranking(variants)
         deterministic_ids = [
             task.id for task in rank_tasks(case.tasks, today=case.today)
         ]
@@ -234,7 +220,7 @@ def run_stability(
     original = variants[0]
 
     selected_count = min(max_items, len(tasks))
-    reference_selected = set(original.task_ids[:selected_count])
+    reference_selected = set(consensus.task_ids[:selected_count])
     stable_selected_set = all(
         set(variant.task_ids[:selected_count]) == reference_selected
         for variant in variants[1:]
@@ -258,7 +244,7 @@ def run_stability(
         rank_ranges[task.id] = (min(positions), max(positions))
 
     return StabilityResult(
-        ranking=original,
+        ranking=consensus,
         stable_top=all(
             variant.task_ids[0] == original.task_ids[0]
             for variant in variants[1:]
