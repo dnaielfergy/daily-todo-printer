@@ -149,20 +149,16 @@ def _is_system_account() -> bool:
     return os.environ.get("USERNAME", "").strip().upper() == "SYSTEM"
 
 
-def run_kev_ranking(
-    tasks: list[Task],
+def _run_kev_bridge(
+    requests: list[dict],
     *,
-    today: date,
     python_path: Path,
     bridge_path: Path,
     model: str,
-    device: str = "auto",
-    timeout_seconds: int = 180,
-    repo_root: Path | None = None,
-) -> AIRanking:
-    if not tasks:
-        return AIRanking(task_ids=[], probabilities={}, model=model)
-
+    device: str,
+    timeout_seconds: int,
+    repo_root: Path | None,
+) -> dict:
     if _is_system_account():
         raise AIRankingError(
             "local AI is disabled under the Windows SYSTEM account; "
@@ -178,11 +174,10 @@ def run_kev_ranking(
     if not bridge_path.exists():
         raise AIRankingError(f"Kev bridge not found: {bridge_path}")
 
-    request = build_kev_request(tasks, today=today)
     payload = {
         "model": model,
         "device": device,
-        "requests": [{"id": "daily", **request}],
+        "requests": requests,
     }
 
     try:
@@ -208,22 +203,100 @@ def run_kev_ranking(
 
     try:
         body = json.loads(completed.stdout)
-        results = body["results"]
-        result = results[0]
-    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+    except json.JSONDecodeError as exc:
         raise AIRankingError("Kev returned malformed bridge output") from exc
 
-    if result.get("id") != "daily":
-        raise AIRankingError("Kev bridge returned the wrong request ID")
+    if not isinstance(body, dict) or not isinstance(body.get("results"), list):
+        raise AIRankingError("Kev returned malformed bridge output")
+    return body
 
-    return rank_from_probabilities(
-        result.get("probabilities"),
-        expected_ids=[task.id for task in tasks],
-        model=str(body.get("model") or model),
-        load_ms=_optional_float(body.get("load_ms")),
-        inference_ms=_optional_float(result.get("inference_ms")),
-        device=str(body.get("device") or device),
+
+def run_kev_batch(
+    cases: list[tuple[str, list[Task], date]],
+    *,
+    python_path: Path,
+    bridge_path: Path,
+    model: str,
+    device: str = "auto",
+    timeout_seconds: int = 180,
+    repo_root: Path | None = None,
+) -> dict[str, AIRanking]:
+    if not cases:
+        return {}
+
+    request_rows = []
+    expected: dict[str, list[int]] = {}
+    for case_id, tasks, today in cases:
+        if not tasks:
+            raise AIRankingError(f"Kev case {case_id} has no tasks")
+        if case_id in expected:
+            raise AIRankingError(f"duplicate Kev case ID: {case_id}")
+        request_rows.append({"id": case_id, **build_kev_request(tasks, today=today)})
+        expected[case_id] = [task.id for task in tasks]
+
+    body = _run_kev_bridge(
+        request_rows,
+        python_path=python_path,
+        bridge_path=bridge_path,
+        model=model,
+        device=device,
+        timeout_seconds=timeout_seconds,
+        repo_root=repo_root,
     )
+    results = body["results"]
+    by_id: dict[str, dict] = {}
+    for result in results:
+        if not isinstance(result, dict):
+            raise AIRankingError("Kev bridge returned a malformed result")
+        result_id = str(result.get("id", ""))
+        if not result_id or result_id in by_id:
+            raise AIRankingError("Kev bridge returned duplicate or missing request IDs")
+        by_id[result_id] = result
+
+    if set(by_id) != set(expected):
+        raise AIRankingError("Kev bridge did not return every requested case exactly once")
+
+    model_name = str(body.get("model") or model)
+    load_ms = _optional_float(body.get("load_ms"))
+    actual_device = str(body.get("device") or device)
+
+    return {
+        case_id: rank_from_probabilities(
+            by_id[case_id].get("probabilities"),
+            expected_ids=task_ids,
+            model=model_name,
+            load_ms=load_ms,
+            inference_ms=_optional_float(by_id[case_id].get("inference_ms")),
+            device=actual_device,
+        )
+        for case_id, task_ids in expected.items()
+    }
+
+
+def run_kev_ranking(
+    tasks: list[Task],
+    *,
+    today: date,
+    python_path: Path,
+    bridge_path: Path,
+    model: str,
+    device: str = "auto",
+    timeout_seconds: int = 180,
+    repo_root: Path | None = None,
+) -> AIRanking:
+    if not tasks:
+        return AIRanking(task_ids=[], probabilities={}, model=model)
+
+    results = run_kev_batch(
+        [("daily", tasks, today)],
+        python_path=python_path,
+        bridge_path=bridge_path,
+        model=model,
+        device=device,
+        timeout_seconds=timeout_seconds,
+        repo_root=repo_root,
+    )
+    return results["daily"]
 
 
 def _optional_float(value: object) -> float | None:
