@@ -31,6 +31,16 @@ class BenchmarkResult:
     inference_ms: float | None
 
 
+@dataclass(frozen=True)
+class StabilityResult:
+    ranking: AIRanking
+    stable_top: bool
+    stable_selected_set: bool
+    min_rank_agreement: float
+    max_probability_delta: float
+    rank_ranges: dict[int, tuple[int, int]]
+
+
 def _task_from_json(value: dict) -> Task:
     return Task(
         id=int(value["id"]),
@@ -186,3 +196,75 @@ def run_benchmark(
 
     first = rankings[f"{cases[0].case_id}::p0"]
     return results, first
+
+
+
+def run_stability(
+    tasks: list[Task],
+    *,
+    today: date,
+    max_items: int,
+    python_path: Path,
+    bridge_path: Path,
+    model: str,
+    device: str,
+    timeout_seconds: int,
+) -> StabilityResult:
+    if not tasks:
+        raise ValueError("stability evaluation requires at least one task")
+    if max_items < 1:
+        raise ValueError("max_items must be at least 1")
+
+    permutations = _permutations(tasks)
+    rankings = run_kev_batch(
+        [
+            (f"real::p{index}", permutation, today)
+            for index, permutation in enumerate(permutations)
+        ],
+        python_path=python_path,
+        bridge_path=bridge_path,
+        model=model,
+        device=device,
+        timeout_seconds=timeout_seconds,
+    )
+    variants = [
+        rankings[f"real::p{index}"]
+        for index in range(len(permutations))
+    ]
+    original = variants[0]
+
+    selected_count = min(max_items, len(tasks))
+    reference_selected = set(original.task_ids[:selected_count])
+    stable_selected_set = all(
+        set(variant.task_ids[:selected_count]) == reference_selected
+        for variant in variants[1:]
+    )
+    agreements = [
+        _pairwise_agreement(original.task_ids, variant.task_ids)
+        for variant in variants[1:]
+    ]
+    probability_deltas = [
+        abs(original.probabilities[task.id] - variant.probabilities[task.id])
+        for variant in variants[1:]
+        for task in tasks
+    ]
+
+    rank_ranges: dict[int, tuple[int, int]] = {}
+    for task in tasks:
+        positions = [
+            variant.task_ids.index(task.id) + 1
+            for variant in variants
+        ]
+        rank_ranges[task.id] = (min(positions), max(positions))
+
+    return StabilityResult(
+        ranking=original,
+        stable_top=all(
+            variant.task_ids[0] == original.task_ids[0]
+            for variant in variants[1:]
+        ),
+        stable_selected_set=stable_selected_set,
+        min_rank_agreement=min(agreements, default=1.0),
+        max_probability_delta=max(probability_deltas, default=0.0),
+        rank_ranges=rank_ranges,
+    )
