@@ -67,6 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ai_eval.add_argument("--config", type=Path)
     ai_eval.add_argument("--device", choices=["auto", "cpu", "cuda"])
+    ai_eval.add_argument(
+        "--show-text",
+        action="store_true",
+        help="Show local task text beside ranking results",
+    )
 
     ai_benchmark = sub.add_parser(
         "ai-benchmark",
@@ -239,12 +244,19 @@ def main() -> None:
         if result.inference_ms is not None:
             print(f"Inference: {result.inference_ms:.0f} ms")
         print("")
-        print("ID   deterministic   ai   probability")
+        if args.show_text:
+            print("ID   deterministic   ai   probability   task")
+        else:
+            print("ID   deterministic   ai   probability")
+        task_map = {task.id: task for task in tasks}
         for task_id in result.task_ids:
-            print(
+            row = (
                 f"{task_id:03d}  {deterministic_rank[task_id]:>13}  "
                 f"{ai_rank[task_id]:>3}   {result.probabilities[task_id]:.4f}"
             )
+            if args.show_text:
+                row += f"   {task_map[task_id].text}"
+            print(row)
         return
 
     if args.command == "daily":
