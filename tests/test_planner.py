@@ -111,6 +111,50 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(len(list_open_tasks(self.conn)), 3)
         self.assertNotIn(third.id, [item.task.id for item in plan.selected])
 
+    def test_valid_ai_ranking_replaces_order_before_max_items(self) -> None:
+        first = add_task(self.conn, "Deterministic first", priority="high")
+        second = add_task(self.conn, "Middle", priority="medium")
+        third = add_task(self.conn, "AI promotes me", priority="low")
+
+        def ai_ranker(tasks, today):
+            self.assertEqual([task.id for task in tasks], [first.id, second.id, third.id])
+            return [third.id, second.id, first.id]
+
+        plan = get_or_create_daily_plan(
+            self.conn,
+            max_items=1,
+            plan_date=self.today,
+            ai_ranker=ai_ranker,
+        )
+
+        self.assertEqual([item.task.id for item in plan.items], [third.id, second.id, first.id])
+        self.assertEqual([item.deterministic_rank for item in plan.items], [3, 2, 1])
+        self.assertEqual([item.ai_rank for item in plan.items], [1, 2, 3])
+        self.assertEqual([item.final_rank for item in plan.items], [1, 2, 3])
+        self.assertEqual([item.task.id for item in plan.selected], [third.id])
+
+        stored = {task.id: task for task in list_open_tasks(self.conn)}
+        self.assertEqual(stored[first.id].priority, "high")
+        self.assertEqual(stored[third.id].priority, "low")
+
+    def test_invalid_or_failed_ai_ranking_falls_back_wholesale(self) -> None:
+        first = add_task(self.conn, "First", priority="high")
+        second = add_task(self.conn, "Second", priority="low")
+        errors = []
+
+        plan = get_or_create_daily_plan(
+            self.conn,
+            max_items=2,
+            plan_date=self.today,
+            ai_ranker=lambda tasks, today: [first.id, first.id],
+            on_ai_error=errors.append,
+        )
+
+        self.assertEqual([item.task.id for item in plan.items], [first.id, second.id])
+        self.assertTrue(all(item.ai_rank is None for item in plan.items))
+        self.assertEqual([item.final_rank for item in plan.items], [1, 2])
+        self.assertEqual(errors, ["AI ranking did not contain every candidate exactly once"])
+
     def test_same_day_retry_reuses_existing_plan(self) -> None:
         add_task(self.conn, "Original")
         first = get_or_create_daily_plan(
