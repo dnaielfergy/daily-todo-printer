@@ -76,14 +76,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "Kev installation failed."
 }
 
-if (-not $SkipSmoke) {
-    Write-Host "Downloading/caching the pinned model and running a local smoke test..."
-    $env:HF_HOME = $cache
-    $env:PYTHONNOUSERSITE = "1"
+function Invoke-KevSmoke {
+    param([string]$SelectedDevice)
 
     $smoke = @{
         model = $Model
-        device = $Device
+        device = $SelectedDevice
         requests = @(
             @{
                 id = "smoke"
@@ -113,18 +111,36 @@ if (-not $SkipSmoke) {
 
     $output = $smoke | & $python $bridge
     if ($LASTEXITCODE -ne 0) {
-        throw "Kev smoke test failed."
+        return $null
     }
 
     try {
         $parsed = $output | ConvertFrom-Json
-        $probabilities = $parsed.results[0].probabilities
-        if (-not $probabilities) {
-            throw "No probabilities returned."
+        if (-not $parsed.results[0].probabilities) {
+            return $null
         }
+        return $parsed
     }
     catch {
-        throw "Kev smoke test returned invalid output: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+if (-not $SkipSmoke) {
+    Write-Host "Downloading/caching the pinned model and running a local smoke test..."
+    $env:HF_HOME = $cache
+    $env:PYTHONNOUSERSITE = "1"
+
+    $parsed = Invoke-KevSmoke -SelectedDevice $Device
+    if (-not $parsed -and $Device -eq "auto") {
+        Write-Warning "Automatic device selection failed. Retrying the smoke test on CPU."
+        $parsed = Invoke-KevSmoke -SelectedDevice "cpu"
+        if ($parsed) {
+            Write-Warning "CPU succeeded. Use 'device = \"cpu\"' in [ai] on this machine."
+        }
+    }
+    if (-not $parsed) {
+        throw "Kev smoke test failed. Retry with -Device cpu to distinguish CUDA compatibility from model/runtime setup."
     }
 
     Write-Host "Kev smoke test passed."
