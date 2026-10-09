@@ -80,8 +80,9 @@ It reports:
 
 - deterministic expectation pass/fail,
 - Kev expectation pass/fail,
-- top-choice stability when the same options are reversed,
-- maximum probability movement under option reversal,
+- top-choice stability across several deterministic option permutations,
+- minimum pairwise rank agreement across those permutations,
+- maximum probability movement across permutations,
 - model load time,
 - inference time.
 
