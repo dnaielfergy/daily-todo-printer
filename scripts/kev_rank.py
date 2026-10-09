@@ -36,10 +36,14 @@ def main() -> None:
 
         load_started = time.perf_counter()
         checkpoint = Checkpoint(model_name)
+        if device == "cuda":
+            dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        else:
+            dtype = torch.float32
         tokenizer, model = checkpoint.load(
             device,
             LoadOptions(
-                dtype=torch.float32,
+                dtype=dtype,
                 attn="sdpa" if device == "cuda" else "eager",
             ),
         )
@@ -83,6 +87,7 @@ def main() -> None:
             {
                 "model": model_name,
                 "device": device,
+                "dtype": str(dtype).replace("torch.", ""),
                 "load_ms": round(load_ms, 3),
                 "results": results,
             },
