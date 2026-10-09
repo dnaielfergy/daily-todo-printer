@@ -117,6 +117,14 @@ Then compare rankings without persisting a daily plan:
 .\.venv\Scripts\receipt-todo.exe ai-eval
 ```
 
+To inspect the ranking against real task meaning on the local machine, opt in to showing task text:
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe --db data\tasks.real-eval.db ai-eval --show-text
+```
+
+Task text is printed only to the local console; it is not persisted to evaluation output files or sent anywhere by the app.
+
 The evaluation command is read-only with respect to task state and daily-plan persistence.
 
 For a real-data evaluation, copy the production DB and point the command at the copy:
