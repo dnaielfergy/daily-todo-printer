@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from .ai import run_kev_ranking
-from .ai_benchmark import load_benchmark_cases, run_benchmark
+from .ai_benchmark import load_benchmark_cases, run_benchmark, run_stability
 from .config import load_ai_settings, load_daily_settings, load_telegram_settings
 from .db import (
     DEFAULT_DB,
@@ -71,6 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--show-text",
         action="store_true",
         help="Show local task text beside ranking results",
+    )
+    ai_eval.add_argument(
+        "--stability",
+        action="store_true",
+        help="Run several option permutations and report rank/cutoff stability",
     )
 
     ai_benchmark = sub.add_parser(
@@ -222,15 +227,31 @@ def main() -> None:
 
         today = date.today()
         deterministic = rank_tasks(tasks, today=today)
-        result = run_kev_ranking(
-            deterministic,
-            today=today,
-            python_path=settings.python_path,
-            bridge_path=settings.bridge_path,
-            model=settings.model,
-            device=args.device or settings.device,
-            timeout_seconds=settings.timeout_seconds,
-        )
+        stability = None
+        if args.stability:
+            daily_settings = load_daily_settings(config_path)
+            stability = run_stability(
+                deterministic,
+                today=today,
+                max_items=daily_settings.max_items,
+                python_path=settings.python_path,
+                bridge_path=settings.bridge_path,
+                model=settings.model,
+                device=args.device or settings.device,
+                timeout_seconds=settings.timeout_seconds,
+            )
+            result = stability.ranking
+        else:
+            result = run_kev_ranking(
+                deterministic,
+                today=today,
+                python_path=settings.python_path,
+                bridge_path=settings.bridge_path,
+                model=settings.model,
+                device=args.device or settings.device,
+                timeout_seconds=settings.timeout_seconds,
+            )
+
         deterministic_rank = {
             task.id: index for index, task in enumerate(deterministic, start=1)
         }
@@ -244,19 +265,43 @@ def main() -> None:
         if result.inference_ms is not None:
             print(f"Inference: {result.inference_ms:.0f} ms")
         print("")
-        if args.show_text:
+        if args.show_text and stability:
+            print("ID   deterministic   ai   probability   rank-range   task")
+        elif args.show_text:
             print("ID   deterministic   ai   probability   task")
+        elif stability:
+            print("ID   deterministic   ai   probability   rank-range")
         else:
             print("ID   deterministic   ai   probability")
+
         task_map = {task.id: task for task in tasks}
         for task_id in result.task_ids:
             row = (
                 f"{task_id:03d}  {deterministic_rank[task_id]:>13}  "
                 f"{ai_rank[task_id]:>3}   {result.probabilities[task_id]:.4f}"
             )
+            if stability:
+                low, high = stability.rank_ranges[task_id]
+                row += f"       {low}" if low == high else f"       {low}-{high}"
             if args.show_text:
                 row += f"   {task_map[task_id].text}"
             print(row)
+
+        if stability:
+            daily_settings = load_daily_settings(config_path)
+            print("")
+            print(f"Stable winner: {'yes' if stability.stable_top else 'NO'}")
+            print(
+                f"Stable printed set (top {min(daily_settings.max_items, len(tasks))}): "
+                f"{'yes' if stability.stable_selected_set else 'NO'}"
+            )
+            print(
+                "Minimum pairwise rank agreement: "
+                f"{stability.min_rank_agreement:.1%}"
+            )
+            print(
+                f"Maximum probability delta: {stability.max_probability_delta:.4f}"
+            )
         return
 
     if args.command == "daily":
