@@ -26,6 +26,16 @@ class DailySettings:
     printer_name: str | None = None
 
 
+@dataclass(frozen=True)
+class AISettings:
+    enabled: bool = False
+    model: str = "jaredpalmer/kev-0.8b@v1.0"
+    python_path: Path = Path(".ai/kev/.venv/Scripts/python.exe")
+    bridge_path: Path = Path("scripts/kev_rank.py")
+    device: str = "auto"
+    timeout_seconds: int = 180
+
+
 def _load_config(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -92,3 +102,33 @@ def load_daily_settings(path: Path) -> DailySettings:
             printer_name = str(telegram.get("printer_name", "")).strip() or None
 
     return DailySettings(max_items=max_items, printer_name=printer_name)
+
+
+def load_ai_settings(path: Path) -> AISettings:
+    data = _load_config(path)
+    ai = data.get("ai", {})
+    if not isinstance(ai, dict):
+        raise ValueError("ai must be a table")
+
+    device = str(ai.get("device", "auto")).strip().lower()
+    if device not in {"auto", "cpu", "cuda"}:
+        raise ValueError("ai.device must be auto, cpu, or cuda")
+
+    timeout_seconds = int(ai.get("timeout_seconds", 180))
+    if timeout_seconds < 1:
+        raise ValueError("ai.timeout_seconds must be at least 1")
+
+    model = str(ai.get("model", "jaredpalmer/kev-0.8b@v1.0")).strip()
+    if not model:
+        raise ValueError("ai.model cannot be empty")
+
+    return AISettings(
+        enabled=bool(ai.get("enabled", False)),
+        model=model,
+        python_path=Path(
+            str(ai.get("python_path", ".ai/kev/.venv/Scripts/python.exe")).strip()
+        ),
+        bridge_path=Path(str(ai.get("bridge_path", "scripts/kev_rank.py")).strip()),
+        device=device,
+        timeout_seconds=timeout_seconds,
+    )
