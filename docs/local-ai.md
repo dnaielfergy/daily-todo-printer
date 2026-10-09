@@ -127,12 +127,26 @@ Task text is printed only to the local console; it is not persisted to evaluatio
 
 The evaluation command is read-only with respect to task state and daily-plan persistence.
 
-For a real-data evaluation, copy the production DB and point the command at the copy:
+For a real-data evaluation, create a consistent SQLite snapshot and point the command at the copy. Using SQLite's backup API avoids relying on a raw file copy while Telegram may be running:
 
 ```powershell
-Copy-Item data\tasks.db data\tasks.real-eval.db
-.\.venv\Scripts\receipt-todo.exe --db data\tasks.real-eval.db ai-eval
+.\.venv\Scripts\python.exe -c "import sqlite3; s=sqlite3.connect(r'data/tasks.db'); d=sqlite3.connect(r'data/tasks.real-eval.db'); s.backup(d); d.close(); s.close(); print('Created data/tasks.real-eval.db')"
 ```
+
+Then run the local ranking plus option-order stability check:
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe `
+  --db data\tasks.real-eval.db `
+  ai-eval --show-text --stability
+```
+
+The stability report shows:
+- whether the top-ranked task stays fixed,
+- whether the same `daily.max_items` tasks remain in the printed set,
+- minimum pairwise full-rank agreement,
+- maximum probability movement,
+- each task's rank range across tested option permutations.
 
 Do not use the production database as a disposable test database.
 
