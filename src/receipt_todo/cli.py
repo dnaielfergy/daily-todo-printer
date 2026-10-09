@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date
 from pathlib import Path
 
-from .config import load_daily_settings, load_telegram_settings
+from .ai import run_kev_ranking
+from .config import load_ai_settings, load_daily_settings, load_telegram_settings
 from .db import (
     DEFAULT_DB,
     add_task,
@@ -13,15 +15,18 @@ from .db import (
     set_task_due_date,
     set_task_priority,
 )
-from .planner import get_or_create_daily_plan, print_daily_plan, render_plan
+from .planner import get_or_create_daily_plan, print_daily_plan, rank_tasks, render_plan
 from .printer import print_raw_windows
 from .receipt import escpos_receipt, render_daily_text
 from .telegram import run_listener
 
 
+AI_EVAL_DB = Path("data/tasks.test.db")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="receipt-todo")
-    parser.add_argument("--db", type=Path, default=DEFAULT_DB)
+    parser.add_argument("--db", type=Path)
     sub = parser.add_subparsers(dest="command", required=True)
 
     add = sub.add_parser("add", help="Add a task")
@@ -50,19 +55,57 @@ def build_parser() -> argparse.ArgumentParser:
     printer.add_argument("--printer-name")
 
     daily = sub.add_parser("daily", help="Preview or print today's persisted daily plan")
-    daily.add_argument("--config", type=Path, default=Path("config.local.toml"))
+    daily.add_argument("--config", type=Path)
     daily.add_argument("--printer-name")
     daily.add_argument("--preview", action="store_true")
     daily.add_argument("--force", action="store_true")
+
+    ai_eval = sub.add_parser(
+        "ai-eval",
+        help="Compare Kev ranking with deterministic ranking without persisting a daily plan",
+    )
+    ai_eval.add_argument("--config", type=Path)
+    ai_eval.add_argument("--device", choices=["auto", "cpu", "cuda"])
 
     telegram = sub.add_parser("telegram", help="Run the Telegram listener")
     telegram.add_argument("--config", type=Path, default=Path("config.local.toml"))
     return parser
 
 
+def _daily_config_path(value: Path | None) -> Path:
+    if value is not None:
+        return value
+    dedicated = Path("config.daily.toml")
+    return dedicated if dedicated.exists() else Path("config.local.toml")
+
+
+def _build_ai_ranker(config_path: Path):
+    settings = load_ai_settings(config_path)
+    if not settings.enabled:
+        return None
+
+    def ranker(tasks, today):
+        return run_kev_ranking(
+            tasks,
+            today=today,
+            python_path=settings.python_path,
+            bridge_path=settings.bridge_path,
+            model=settings.model,
+            device=settings.device,
+            timeout_seconds=settings.timeout_seconds,
+        ).task_ids
+
+    return ranker
+
+
+def _ai_error(message: str) -> None:
+    print(f"AI ranking unavailable: {message}; using deterministic ranking.")
+
+
 def main() -> None:
     args = build_parser().parse_args()
-    conn = connect(args.db)
+    db_path = args.db or (AI_EVAL_DB if args.command == "ai-eval" else DEFAULT_DB)
+    conn = connect(db_path)
 
     if args.command == "add":
         task = add_task(
@@ -96,10 +139,61 @@ def main() -> None:
         run_listener(conn, load_telegram_settings(args.config))
         return
 
+    if args.command == "ai-eval":
+        config_path = _daily_config_path(args.config)
+        settings = load_ai_settings(config_path)
+        tasks = list_open_tasks(conn)
+        if not tasks:
+            print(f"No open tasks in evaluation database: {db_path}")
+            print(
+                "Seed it with: receipt-todo --db data/tasks.test.db add "
+                '"Example task" --priority high'
+            )
+            return
+
+        today = date.today()
+        deterministic = rank_tasks(tasks, today=today)
+        result = run_kev_ranking(
+            deterministic,
+            today=today,
+            python_path=settings.python_path,
+            bridge_path=settings.bridge_path,
+            model=settings.model,
+            device=args.device or settings.device,
+            timeout_seconds=settings.timeout_seconds,
+        )
+        deterministic_rank = {
+            task.id: index for index, task in enumerate(deterministic, start=1)
+        }
+        ai_rank = {task_id: index for index, task_id in enumerate(result.task_ids, start=1)}
+
+        print(f"Database: {db_path}")
+        print(f"Model: {result.model}")
+        print(f"Device: {result.device or 'unknown'}")
+        if result.load_ms is not None:
+            print(f"Load: {result.load_ms:.0f} ms")
+        if result.inference_ms is not None:
+            print(f"Inference: {result.inference_ms:.0f} ms")
+        print("")
+        print("ID   deterministic   ai   probability")
+        for task_id in result.task_ids:
+            print(
+                f"{task_id:03d}  {deterministic_rank[task_id]:>13}  "
+                f"{ai_rank[task_id]:>3}   {result.probabilities[task_id]:.4f}"
+            )
+        return
+
     if args.command == "daily":
-        settings = load_daily_settings(args.config)
+        config_path = _daily_config_path(args.config)
+        settings = load_daily_settings(config_path)
+        ai_ranker = _build_ai_ranker(config_path)
         if args.preview:
-            plan = get_or_create_daily_plan(conn, max_items=settings.max_items)
+            plan = get_or_create_daily_plan(
+                conn,
+                max_items=settings.max_items,
+                ai_ranker=ai_ranker,
+                on_ai_error=_ai_error,
+            )
             print(render_plan(plan))
             return
         printer_name = args.printer_name or settings.printer_name
@@ -108,6 +202,8 @@ def main() -> None:
             max_items=settings.max_items,
             printer_name=printer_name,
             force=args.force,
+            ai_ranker=ai_ranker,
+            on_ai_error=_ai_error,
         )
         if printed:
             print(f"Printed daily plan with {len(plan.selected)} tasks")
