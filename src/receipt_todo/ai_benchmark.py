@@ -155,12 +155,12 @@ def run_benchmark(
 
         probability_deltas = [
             abs(original.probabilities[task.id] - variant.probabilities[task.id])
-            for variant in variants[1:]
+            for variant in variants
             for task in case.tasks
         ]
         agreements = [
             _pairwise_agreement(original.task_ids, variant.task_ids)
-            for variant in variants[1:]
+            for variant in variants
         ]
 
         results.append(
@@ -172,7 +172,7 @@ def run_benchmark(
                 ai_pass=_passes(original.task_ids, case.expect_before),
                 stable_top=all(
                     variant.task_ids[0] == original.task_ids[0]
-                    for variant in variants[1:]
+                    for variant in variants
                 ),
                 min_rank_agreement=min(agreements, default=1.0),
                 max_probability_delta=max(probability_deltas, default=0.0),
@@ -180,8 +180,11 @@ def run_benchmark(
             )
         )
 
-    first = rankings[f"{cases[0].case_id}::p0"]
-    return results, first
+    first_variants = [
+        rankings[f"{cases[0].case_id}::p{index}"]
+        for index in range(permutation_counts[cases[0].case_id])
+    ]
+    return results, consensus_ranking(first_variants)
 
 
 
@@ -217,21 +220,21 @@ def run_stability(
         rankings[f"real::p{index}"]
         for index in range(len(permutations))
     ]
-    original = variants[0]
+    consensus = consensus_ranking(variants)
 
     selected_count = min(max_items, len(tasks))
     reference_selected = set(consensus.task_ids[:selected_count])
     stable_selected_set = all(
         set(variant.task_ids[:selected_count]) == reference_selected
-        for variant in variants[1:]
+        for variant in variants
     )
     agreements = [
-        _pairwise_agreement(original.task_ids, variant.task_ids)
-        for variant in variants[1:]
+        _pairwise_agreement(consensus.task_ids, variant.task_ids)
+        for variant in variants
     ]
     probability_deltas = [
-        abs(original.probabilities[task.id] - variant.probabilities[task.id])
-        for variant in variants[1:]
+        abs(consensus.probabilities[task.id] - variant.probabilities[task.id])
+        for variant in variants
         for task in tasks
     ]
 
@@ -246,8 +249,8 @@ def run_stability(
     return StabilityResult(
         ranking=consensus,
         stable_top=all(
-            variant.task_ids[0] == original.task_ids[0]
-            for variant in variants[1:]
+            variant.task_ids[0] == consensus.task_ids[0]
+            for variant in variants
         ),
         stable_selected_set=stable_selected_set,
         min_rank_agreement=min(agreements, default=1.0),
