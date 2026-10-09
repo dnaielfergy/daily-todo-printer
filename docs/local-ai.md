@@ -11,11 +11,13 @@ The trusted Python application:
 1. reads open tasks from SQLite,
 2. computes deterministic rank,
 3. passes only selected task fields to an isolated Kev subprocess,
-4. validates a complete probability distribution over the supplied task IDs,
-5. converts probabilities to `ai_rank`,
-6. falls back wholesale to deterministic rank on any failure,
-7. applies `daily.max_items` after final ranking,
-8. persists the daily plan and prints normally.
+4. evaluates a small canonical set of option permutations in one model load,
+5. averages each task's probability across those permutations,
+6. validates the complete consensus distribution,
+7. converts the consensus probabilities to `ai_rank`,
+8. falls back wholesale to deterministic rank on any failure,
+9. applies `daily.max_items` after final ranking,
+10. persists the daily plan and prints normally.
 
 Kev never receives a SQLite connection, shell tool, filesystem tool, Telegram token, printer API, or scheduler API.
 
@@ -133,7 +135,7 @@ For a real-data evaluation, create a consistent SQLite snapshot and point the co
 .\.venv\Scripts\python.exe -c "import sqlite3; s=sqlite3.connect(r'data/tasks.db'); d=sqlite3.connect(r'data/tasks.real-eval.db'); s.backup(d); d.close(); s.close(); print('Created data/tasks.real-eval.db')"
 ```
 
-Then run the local ranking plus option-order stability check:
+Then run the local consensus ranking plus option-order stability check:
 
 ```powershell
 .\.venv\Scripts\receipt-todo.exe `
@@ -141,12 +143,20 @@ Then run the local ranking plus option-order stability check:
   ai-eval --show-text --stability
 ```
 
-The stability report shows:
-- whether the top-ranked task stays fixed,
-- whether the same `daily.max_items` tasks remain in the printed set,
-- minimum pairwise full-rank agreement,
-- maximum probability movement,
-- each task's rank range across tested option permutations.
+If the copied database contains fewer tasks than the configured `daily.max_items`, use an evaluation-only cutoff such as top 3 so printed-set stability is meaningful:
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe `
+  --db data\tasks.real-eval.db `
+  ai-eval --show-text --stability --max-items 3
+```
+
+The displayed AI order is the canonical permutation consensus that production uses. The stability report additionally shows:
+- whether every underlying single-pass permutation chooses the same winner as the consensus,
+- whether the same top-N tasks remain in the printed set,
+- minimum pairwise full-rank agreement between the consensus and each raw pass,
+- maximum probability movement around the consensus,
+- each task's raw rank range across tested option permutations.
 
 Do not use the production database as a disposable test database.
 
