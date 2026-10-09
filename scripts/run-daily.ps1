@@ -7,7 +7,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
 if (-not $Config) {
-    $Config = Join-Path $repoRoot "config.local.toml"
+    $dedicated = Join-Path $repoRoot "config.daily.toml"
+    $legacy = Join-Path $repoRoot "config.local.toml"
+    $Config = if (Test-Path $dedicated) { $dedicated } else { $legacy }
 }
 
 $exe = Join-Path $repoRoot ".venv\Scripts\receipt-todo.exe"
