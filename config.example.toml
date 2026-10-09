@@ -17,3 +17,11 @@ print_on_create = true
 max_items = 10
 # Optional. If omitted, daily printing reuses telegram.printer_name.
 # printer_name = "YOUR EXACT WINDOWS PRINTER NAME"
+
+[ai]
+enabled = false
+model = "jaredpalmer/kev-0.8b@v1.0"
+python_path = ".ai/kev/.venv/Scripts/python.exe"
+bridge_path = "scripts/kev_rank.py"
+device = "auto"
+timeout_seconds = 180
