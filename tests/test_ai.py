@@ -8,8 +8,11 @@ import unittest
 from unittest.mock import patch
 
 from receipt_todo.ai import (
+    AIRanking,
     AIRankingError,
     build_kev_request,
+    consensus_ranking,
+    kev_option_permutations,
     rank_from_probabilities,
     run_kev_ranking,
 )
@@ -50,6 +53,24 @@ class AIRankingTests(unittest.TestCase):
         )
         self.assertEqual(result.task_ids, [1, 2, 3])
         self.assertEqual(result.probabilities[1], 0.50)
+
+    def test_consensus_averages_permutations_and_is_input_order_independent(self) -> None:
+        rankings = [
+            AIRanking([1, 2, 3], {1: 0.50, 2: 0.30, 3: 0.20}, "test", inference_ms=5),
+            AIRanking([2, 1, 3], {1: 0.35, 2: 0.45, 3: 0.20}, "test", inference_ms=7),
+            AIRanking([1, 3, 2], {1: 0.45, 2: 0.20, 3: 0.35}, "test", inference_ms=6),
+        ]
+        result = consensus_ranking(rankings)
+        self.assertEqual(result.task_ids, [1, 2, 3])
+        self.assertAlmostEqual(result.probabilities[1], (0.50 + 0.35 + 0.45) / 3)
+        self.assertEqual(result.inference_ms, 18)
+
+        first = [task(3), task(1), task(2)]
+        second = [task(2), task(3), task(1)]
+        self.assertEqual(
+            [[item.id for item in permutation] for permutation in kev_option_permutations(first)],
+            [[item.id for item in permutation] for permutation in kev_option_permutations(second)],
+        )
 
     def test_invalid_probability_sets_are_rejected(self) -> None:
         invalid = [
