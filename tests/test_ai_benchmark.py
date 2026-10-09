@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-from receipt_todo.ai_benchmark import load_benchmark_cases
+from receipt_todo.ai_benchmark import _pairwise_agreement, _permutations, load_benchmark_cases
 from receipt_todo.planner import rank_tasks
 
 
@@ -27,6 +27,25 @@ class AIBenchmarkTests(unittest.TestCase):
             challenged,
             1,
             "benchmark should include at least one case where semantic judgment can beat the deterministic baseline",
+        )
+
+
+    def test_permutation_helpers_measure_full_rank_stability(self) -> None:
+        cases = load_benchmark_cases(Path("eval/ai-ranking/cases.json"))
+        three_task_case = next(case for case in cases if len(case.tasks) == 3)
+        permutations = _permutations(three_task_case.tasks)
+
+        self.assertGreaterEqual(len(permutations), 3)
+        self.assertEqual(
+            len({tuple(task.id for task in permutation) for permutation in permutations}),
+            len(permutations),
+        )
+
+        self.assertEqual(_pairwise_agreement([1, 2, 3], [1, 2, 3]), 1.0)
+        self.assertEqual(_pairwise_agreement([1, 2, 3], [3, 2, 1]), 0.0)
+        self.assertAlmostEqual(
+            _pairwise_agreement([1, 2, 3], [1, 3, 2]),
+            2 / 3,
         )
 
 
