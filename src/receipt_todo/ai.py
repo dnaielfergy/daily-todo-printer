@@ -116,6 +116,54 @@ def rank_from_probabilities(
     )
 
 
+def kev_option_permutations(tasks: list[Task]) -> list[list[Task]]:
+    canonical = sorted(tasks, key=lambda task: task.id)
+    candidates = [
+        list(canonical),
+        list(reversed(canonical)),
+        list(canonical[1:] + canonical[:1]),
+        list(canonical[::2] + canonical[1::2]),
+        list(canonical[1::2] + canonical[::2]),
+    ]
+    unique: list[list[Task]] = []
+    seen: set[tuple[int, ...]] = set()
+    for permutation in candidates:
+        ids = tuple(task.id for task in permutation)
+        if ids not in seen:
+            seen.add(ids)
+            unique.append(permutation)
+    return unique
+
+
+def consensus_ranking(rankings: list[AIRanking]) -> AIRanking:
+    if not rankings:
+        raise AIRankingError("cannot build Kev consensus from zero rankings")
+
+    first = rankings[0]
+    expected = set(first.probabilities)
+    for ranking in rankings[1:]:
+        if set(ranking.probabilities) != expected:
+            raise AIRankingError("Kev consensus rankings do not contain the same task IDs")
+
+    probabilities = {
+        task_id: sum(ranking.probabilities[task_id] for ranking in rankings) / len(rankings)
+        for task_id in expected
+    }
+    inference_values = [
+        ranking.inference_ms
+        for ranking in rankings
+        if ranking.inference_ms is not None
+    ]
+    return rank_from_probabilities(
+        probabilities,
+        expected_ids=expected,
+        model=first.model,
+        load_ms=first.load_ms,
+        inference_ms=sum(inference_values) if inference_values else None,
+        device=first.device,
+    )
+
+
 def _safe_child_environment(repo_root: Path) -> dict[str, str]:
     allowed = {
         "COMSPEC",
@@ -271,6 +319,41 @@ def run_kev_batch(
         )
         for case_id, task_ids in expected.items()
     }
+
+
+def run_kev_consensus(
+    tasks: list[Task],
+    *,
+    today: date,
+    python_path: Path,
+    bridge_path: Path,
+    model: str,
+    device: str = "auto",
+    timeout_seconds: int = 180,
+    repo_root: Path | None = None,
+) -> AIRanking:
+    if not tasks:
+        return AIRanking(task_ids=[], probabilities={}, model=model)
+
+    permutations = kev_option_permutations(tasks)
+    results = run_kev_batch(
+        [
+            (f"daily::p{index}", permutation, today)
+            for index, permutation in enumerate(permutations)
+        ],
+        python_path=python_path,
+        bridge_path=bridge_path,
+        model=model,
+        device=device,
+        timeout_seconds=timeout_seconds,
+        repo_root=repo_root,
+    )
+    return consensus_ranking(
+        [
+            results[f"daily::p{index}"]
+            for index in range(len(permutations))
+        ]
+    )
 
 
 def run_kev_ranking(
