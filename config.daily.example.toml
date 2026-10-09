@@ -1,0 +1,13 @@
+[daily]
+max_items = 10
+printer_name = "YOUR EXACT WINDOWS PRINTER NAME"
+
+[ai]
+# Keep false until Kev has been evaluated on this machine and the
+# morning scheduled task has moved off SYSTEM to a limited account.
+enabled = false
+model = "jaredpalmer/kev-0.8b@v1.0"
+python_path = ".ai/kev/.venv/Scripts/python.exe"
+bridge_path = "scripts/kev_rank.py"
+device = "auto"
+timeout_seconds = 180
