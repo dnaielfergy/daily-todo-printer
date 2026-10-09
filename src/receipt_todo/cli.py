@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from .ai import run_kev_ranking
+from .ai_benchmark import load_benchmark_cases, run_benchmark
 from .config import load_ai_settings, load_daily_settings, load_telegram_settings
 from .db import (
     DEFAULT_DB,
@@ -67,6 +68,18 @@ def build_parser() -> argparse.ArgumentParser:
     ai_eval.add_argument("--config", type=Path)
     ai_eval.add_argument("--device", choices=["auto", "cpu", "cuda"])
 
+    ai_benchmark = sub.add_parser(
+        "ai-benchmark",
+        help="Run the checked-in synthetic Kev ranking benchmark",
+    )
+    ai_benchmark.add_argument("--config", type=Path)
+    ai_benchmark.add_argument(
+        "--cases",
+        type=Path,
+        default=Path("eval/ai-ranking/cases.json"),
+    )
+    ai_benchmark.add_argument("--device", choices=["auto", "cpu", "cuda"])
+
     telegram = sub.add_parser("telegram", help="Run the Telegram listener")
     telegram.add_argument("--config", type=Path, default=Path("config.local.toml"))
     return parser
@@ -104,6 +117,52 @@ def _ai_error(message: str) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.command == "ai-benchmark":
+        config_path = _daily_config_path(args.config)
+        settings = load_ai_settings(config_path)
+        cases = load_benchmark_cases(args.cases)
+        results, runtime = run_benchmark(
+            cases,
+            python_path=settings.python_path,
+            bridge_path=settings.bridge_path,
+            model=settings.model,
+            device=args.device or settings.device,
+            timeout_seconds=settings.timeout_seconds,
+        )
+        print(f"Model: {runtime.model}")
+        print(f"Device: {runtime.device or 'unknown'}")
+        if runtime.load_ms is not None:
+            print(f"Load: {runtime.load_ms:.0f} ms")
+        print("")
+        print("case                           det  ai  stable  max-delta  inference")
+        for result in results:
+            inference = (
+                f"{result.inference_ms:.0f} ms"
+                if result.inference_ms is not None
+                else "-"
+            )
+            print(
+                f"{result.case_id:<30} "
+                f"{'pass' if result.deterministic_pass else 'fail':>4} "
+                f"{'pass' if result.ai_pass else 'fail':>4} "
+                f"{'yes' if result.stable_top else 'NO':>6} "
+                f"{result.max_probability_delta:>9.4f}  {inference}"
+            )
+        print("")
+        print(
+            f"AI expectations: {sum(result.ai_pass for result in results)}/{len(results)}"
+        )
+        print(
+            "Deterministic expectations: "
+            f"{sum(result.deterministic_pass for result in results)}/{len(results)}"
+        )
+        print(
+            "Stable top choice under reversed options: "
+            f"{sum(result.stable_top for result in results)}/{len(results)}"
+        )
+        return
+
     db_path = args.db or (AI_EVAL_DB if args.command == "ai-eval" else DEFAULT_DB)
     conn = connect(db_path)
 
