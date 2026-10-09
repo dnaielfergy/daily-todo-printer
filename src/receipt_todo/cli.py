@@ -135,7 +135,7 @@ def main() -> None:
         if runtime.load_ms is not None:
             print(f"Load: {runtime.load_ms:.0f} ms")
         print("")
-        print("case                           det  ai  stable  max-delta  inference")
+        print("case                           det  ai  winner  rank-agree  max-delta  inference")
         for result in results:
             inference = (
                 f"{result.inference_ms:.0f} ms"
@@ -147,6 +147,7 @@ def main() -> None:
                 f"{'pass' if result.deterministic_pass else 'fail':>4} "
                 f"{'pass' if result.ai_pass else 'fail':>4} "
                 f"{'yes' if result.stable_top else 'NO':>6} "
+                f"{result.min_rank_agreement:>10.1%} "
                 f"{result.max_probability_delta:>9.4f}  {inference}"
             )
         print("")
@@ -158,8 +159,12 @@ def main() -> None:
             f"{sum(result.deterministic_pass for result in results)}/{len(results)}"
         )
         print(
-            "Stable top choice under reversed options: "
+            "Stable top choice across option permutations: "
             f"{sum(result.stable_top for result in results)}/{len(results)}"
+        )
+        print(
+            "Minimum pairwise rank agreement: "
+            f"{min(result.min_rank_agreement for result in results):.1%}"
         )
         return
 
