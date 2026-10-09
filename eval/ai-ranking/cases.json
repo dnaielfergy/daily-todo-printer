@@ -1,0 +1,125 @@
+[
+  {
+    "id": "explicit_priority",
+    "today": "2026-10-09",
+    "tasks": [
+      {
+        "id": 1,
+        "text": "Send signed contract",
+        "priority": "high",
+        "due_at": null,
+        "created_at": "2026-10-08T09:00:00+00:00",
+        "created_by": "test"
+      },
+      {
+        "id": 2,
+        "text": "Clean up downloads folder",
+        "priority": "low",
+        "due_at": null,
+        "created_at": "2026-10-01T09:00:00+00:00",
+        "created_by": "test"
+      }
+    ],
+    "expect_before": [[1, 2]]
+  },
+  {
+    "id": "overdue_deadline",
+    "today": "2026-10-09",
+    "tasks": [
+      {
+        "id": 1,
+        "text": "Submit reimbursement form",
+        "priority": "medium",
+        "due_at": "2026-10-08",
+        "created_at": "2026-10-07T09:00:00+00:00",
+        "created_by": "test"
+      },
+      {
+        "id": 2,
+        "text": "Review saved articles",
+        "priority": "medium",
+        "due_at": null,
+        "created_at": "2026-10-01T09:00:00+00:00",
+        "created_by": "test"
+      }
+    ],
+    "expect_before": [[1, 2]]
+  },
+  {
+    "id": "due_today",
+    "today": "2026-10-09",
+    "tasks": [
+      {
+        "id": 1,
+        "text": "Pay registration fee",
+        "priority": "medium",
+        "due_at": "2026-10-09",
+        "created_at": "2026-10-08T09:00:00+00:00",
+        "created_by": "test"
+      },
+      {
+        "id": 2,
+        "text": "Order replacement charging cable",
+        "priority": "medium",
+        "due_at": "2026-10-20",
+        "created_at": "2026-10-01T09:00:00+00:00",
+        "created_by": "test"
+      }
+    ],
+    "expect_before": [[1, 2]]
+  },
+  {
+    "id": "semantic_urgency",
+    "today": "2026-10-09",
+    "tasks": [
+      {
+        "id": 1,
+        "text": "Call building maintenance about water actively leaking under the sink",
+        "priority": "medium",
+        "due_at": null,
+        "created_at": "2026-10-09T14:00:00+00:00",
+        "created_by": "test"
+      },
+      {
+        "id": 2,
+        "text": "Rename old photo folders",
+        "priority": "medium",
+        "due_at": null,
+        "created_at": "2026-09-20T09:00:00+00:00",
+        "created_by": "test"
+      }
+    ],
+    "expect_before": [[1, 2]]
+  },
+  {
+    "id": "meaningful_work_vs_housekeeping",
+    "today": "2026-10-09",
+    "tasks": [
+      {
+        "id": 1,
+        "text": "Send client the proposal they are waiting on before they can approve the project",
+        "priority": "medium",
+        "due_at": null,
+        "created_at": "2026-10-09T13:00:00+00:00",
+        "created_by": "test"
+      },
+      {
+        "id": 2,
+        "text": "Rearrange desktop icons",
+        "priority": "medium",
+        "due_at": null,
+        "created_at": "2026-09-15T09:00:00+00:00",
+        "created_by": "test"
+      },
+      {
+        "id": 3,
+        "text": "Buy extra printer paper for next month",
+        "priority": "medium",
+        "due_at": null,
+        "created_at": "2026-09-25T09:00:00+00:00",
+        "created_by": "test"
+      }
+    ],
+    "expect_before": [[1, 2], [1, 3]]
+  }
+]
