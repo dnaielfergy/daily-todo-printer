@@ -29,10 +29,11 @@ def render_daily_text(
     else:
         for task in tasks:
             marker = PRIORITY_MARKER[task.priority]
-            due = f"  due {task.due_at}" if task.due_at else ""
-            lines.append(f"[{marker}] {task.id:03d}  {task.text}{due}")
-            if task.source == "telegram":
-                lines.append(f"      from {task.created_by}")
+            lines.append(f"[ ] {marker} {task.id:03d} {task.text}")
+            metadata = f"        from {task.created_by}"
+            if task.due_at:
+                metadata += f" · due {task.due_at}"
+            lines.append(metadata)
 
     lines.extend(["", "-" * 42])
     if open_count is not None and planned_count is not None:

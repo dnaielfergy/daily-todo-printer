@@ -57,14 +57,14 @@ class CoreTests(unittest.TestCase):
             created_by="alex",
             source="telegram",
             priority="high",
+            due_at="2026-10-10",
         )
         text = render_daily_text(
             list_open_tasks(self.conn),
             now=datetime(2026, 10, 4, 8, 0),
         )
-        self.assertIn(f"{task.id:03d}", text)
-        self.assertIn("[H]", text)
-        self.assertIn("from alex", text)
+        self.assertIn(f"[ ] H {task.id:03d} Pick up milk", text)
+        self.assertIn("        from alex · due 2026-10-10", text)
         self.assertTrue(escpos_receipt(text).endswith(b"\x1dV\x00"))
 
     def test_legacy_priority_override_migrates_once(self) -> None:
