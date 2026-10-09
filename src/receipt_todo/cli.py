@@ -299,9 +299,13 @@ def main() -> None:
             daily_settings = load_daily_settings(config_path)
             max_items = args.max_items or daily_settings.max_items
             print("")
-            print(f"Stable winner: {'yes' if stability.stable_top else 'NO'}")
             print(
-                f"Stable printed set (top {min(max_items, len(tasks))}): "
+                "All raw passes agree on consensus winner: "
+                f"{'yes' if stability.stable_top else 'NO'}"
+            )
+            print(
+                f"All raw passes match consensus printed set "
+                f"(top {min(max_items, len(tasks))}): "
                 f"{'yes' if stability.stable_selected_set else 'NO'}"
             )
             print(
