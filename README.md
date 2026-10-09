@@ -57,6 +57,8 @@ Start with Telegram because it is inexpensive, easy to run by long polling, and 
 
 The planner receives factual state (open tasks, age, deadlines, explicit priority, creator, recent plan history, and optionally calendar context) and returns an ordered daily plan.
 
+The current evaluation target is local **Kev-0.8B**, a Jev-like decision model. AI is opt-in and deterministic ranking remains the permanent fallback. Setup, isolated evaluation, security boundaries, and the production hardening path are documented in [docs/local-ai.md](docs/local-ai.md).
+
 Important constraints:
 
 - The planner does **not** complete, delete, or rewrite tasks.
@@ -64,6 +66,8 @@ Important constraints:
 - A failed AI call must never prevent task capture or state updates.
 - We should evaluate prioritization quality from real usage before adding more task metadata.
 - Prefer one small model call per day over continuous agentic inference.
+- Run model evaluation against a separate SQLite database or a copy of production data.
+- Do not run local model inference under the Windows SYSTEM account.
 
 ## Local setup
 
