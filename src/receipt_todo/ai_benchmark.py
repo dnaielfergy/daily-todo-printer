@@ -26,6 +26,7 @@ class BenchmarkResult:
     deterministic_pass: bool
     ai_pass: bool
     stable_top: bool
+    min_rank_agreement: float
     max_probability_delta: float
     inference_ms: float | None
 
@@ -84,6 +85,41 @@ def _passes(order: list[int], expectations: list[tuple[int, int]]) -> bool:
     return all(positions[before] < positions[after] for before, after in expectations)
 
 
+def _permutations(tasks: list[Task]) -> list[list[Task]]:
+    candidates = [
+        list(tasks),
+        list(reversed(tasks)),
+        list(tasks[1:] + tasks[:1]),
+        list(tasks[::2] + tasks[1::2]),
+        list(tasks[1::2] + tasks[::2]),
+    ]
+    unique: list[list[Task]] = []
+    seen: set[tuple[int, ...]] = set()
+    for permutation in candidates:
+        ids = tuple(task.id for task in permutation)
+        if ids not in seen:
+            seen.add(ids)
+            unique.append(permutation)
+    return unique
+
+
+def _pairwise_agreement(reference: list[int], candidate: list[int]) -> float:
+    if len(reference) < 2:
+        return 1.0
+
+    ref_positions = {task_id: index for index, task_id in enumerate(reference)}
+    candidate_positions = {task_id: index for index, task_id in enumerate(candidate)}
+    agreements = 0
+    total = 0
+    for index, left in enumerate(reference):
+        for right in reference[index + 1 :]:
+            total += 1
+            ref_before = ref_positions[left] < ref_positions[right]
+            candidate_before = candidate_positions[left] < candidate_positions[right]
+            agreements += int(ref_before == candidate_before)
+    return agreements / total if total else 1.0
+
+
 def run_benchmark(
     cases: list[BenchmarkCase],
     *,
@@ -94,9 +130,12 @@ def run_benchmark(
     timeout_seconds: int,
 ) -> tuple[list[BenchmarkResult], AIRanking]:
     batch = []
+    permutation_counts: dict[str, int] = {}
     for case in cases:
-        batch.append((case.case_id, case.tasks, case.today))
-        batch.append((f"{case.case_id}::reversed", list(reversed(case.tasks)), case.today))
+        permutations = _permutations(case.tasks)
+        permutation_counts[case.case_id] = len(permutations)
+        for index, tasks in enumerate(permutations):
+            batch.append((f"{case.case_id}::p{index}", tasks, case.today))
 
     rankings = run_kev_batch(
         batch,
@@ -109,15 +148,25 @@ def run_benchmark(
 
     results: list[BenchmarkResult] = []
     for case in cases:
-        original = rankings[case.case_id]
-        reversed_result = rankings[f"{case.case_id}::reversed"]
+        original = rankings[f"{case.case_id}::p0"]
+        variants = [
+            rankings[f"{case.case_id}::p{index}"]
+            for index in range(permutation_counts[case.case_id])
+        ]
         deterministic_ids = [
             task.id for task in rank_tasks(case.tasks, today=case.today)
         ]
-        deltas = [
-            abs(original.probabilities[task.id] - reversed_result.probabilities[task.id])
+
+        probability_deltas = [
+            abs(original.probabilities[task.id] - variant.probabilities[task.id])
+            for variant in variants[1:]
             for task in case.tasks
         ]
+        agreements = [
+            _pairwise_agreement(original.task_ids, variant.task_ids)
+            for variant in variants[1:]
+        ]
+
         results.append(
             BenchmarkResult(
                 case_id=case.case_id,
@@ -125,11 +174,15 @@ def run_benchmark(
                 ai_ids=original.task_ids,
                 deterministic_pass=_passes(deterministic_ids, case.expect_before),
                 ai_pass=_passes(original.task_ids, case.expect_before),
-                stable_top=original.task_ids[0] == reversed_result.task_ids[0],
-                max_probability_delta=max(deltas, default=0.0),
+                stable_top=all(
+                    variant.task_ids[0] == original.task_ids[0]
+                    for variant in variants[1:]
+                ),
+                min_rank_agreement=min(agreements, default=1.0),
+                max_probability_delta=max(probability_deltas, default=0.0),
                 inference_ms=original.inference_ms,
             )
         )
 
-    first = rankings[cases[0].case_id]
+    first = rankings[f"{cases[0].case_id}::p0"]
     return results, first
