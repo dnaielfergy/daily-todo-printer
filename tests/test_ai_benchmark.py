@@ -45,11 +45,11 @@ class AIBenchmarkTests(unittest.TestCase):
             Task(2, "B", "open", "2026-10-01T00:00:00+00:00", None, None, "test", "eval", "medium"),
             Task(3, "C", "open", "2026-10-01T00:00:00+00:00", None, None, "test", "eval", "medium"),
         ]
+        stable = AIRanking([1, 2, 3], {1: 0.5, 2: 0.3, 3: 0.2}, "test")
+        swapped = AIRanking([1, 3, 2], {1: 0.5, 2: 0.2, 3: 0.3}, "test")
         variants = {
-            "real::p0": AIRanking([1, 2, 3], {1: 0.5, 2: 0.3, 3: 0.2}, "test"),
-            "real::p1": AIRanking([1, 3, 2], {1: 0.5, 2: 0.2, 3: 0.3}, "test"),
-            "real::p2": AIRanking([1, 2, 3], {1: 0.5, 2: 0.3, 3: 0.2}, "test"),
-            "real::p3": AIRanking([1, 3, 2], {1: 0.5, 2: 0.2, 3: 0.3}, "test"),
+            f"real::p{index}": stable if index % 2 == 0 else swapped
+            for index, _ in enumerate(_permutations(tasks))
         }
 
         with patch("receipt_todo.ai_benchmark.run_kev_batch", return_value=variants):
