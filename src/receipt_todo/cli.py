@@ -4,7 +4,7 @@ import argparse
 from datetime import date
 from pathlib import Path
 
-from .ai import run_kev_consensus
+from .ai import run_kev_consensus, run_kev_task_scoring
 from .ai_benchmark import load_benchmark_cases, run_benchmark, run_stability
 from .ai_judgment import (
     DEFAULT_JUDGMENT_DB,
@@ -183,17 +183,16 @@ def main() -> None:
         if max_items < 1:
             raise ValueError("--max-items must be at least 1")
 
-        stability = run_stability(
+        ai_result = run_kev_task_scoring(
             deterministic,
             today=dataset.reference_date,
-            max_items=max_items,
             python_path=ai_settings.python_path,
             bridge_path=ai_settings.bridge_path,
             model=ai_settings.model,
             device=args.device or ai_settings.device,
             timeout_seconds=ai_settings.timeout_seconds,
         )
-        ai_ids = stability.ranking.task_ids
+        ai_ids = ai_result.task_ids
 
         deterministic_score = score_judgments(
             deterministic_ids,
@@ -211,12 +210,12 @@ def main() -> None:
             f"Judgments: {len(dataset.judgments)}  "
             f"Reference date: {dataset.reference_date.isoformat()}"
         )
-        print(f"Model: {stability.ranking.model}")
-        print(f"Device: {stability.ranking.device or 'unknown'}")
-        if stability.ranking.load_ms is not None:
-            print(f"Load: {stability.ranking.load_ms:.0f} ms")
-        if stability.ranking.inference_ms is not None:
-            print(f"Consensus inference: {stability.ranking.inference_ms:.0f} ms")
+        print(f"Model: {ai_result.model}")
+        print(f"Device: {ai_result.device or 'unknown'}")
+        if ai_result.load_ms is not None:
+            print(f"Load: {ai_result.load_ms:.0f} ms")
+        if ai_result.inference_ms is not None:
+            print(f"Packed scoring inference: {ai_result.inference_ms:.0f} ms")
 
         print("")
         print(
@@ -225,7 +224,7 @@ def main() -> None:
             f"({deterministic_score.rate:.1%})"
         )
         print(
-            f"Kev consensus judgments: "
+            f"Kev packed-score judgments: "
             f"{ai_score.passed}/{ai_score.total} "
             f"({ai_score.rate:.1%})"
         )
@@ -245,46 +244,33 @@ def main() -> None:
                 f"({ai_passed / ai_total:>5.1%})"
             )
 
-        print("")
-        print(
-            "All raw passes agree on consensus winner: "
-            f"{'yes' if stability.stable_top else 'NO'}"
-        )
-        print(
-            f"All raw passes match consensus printed set "
-            f"(top {min(max_items, len(tasks))}): "
-            f"{'yes' if stability.stable_selected_set else 'NO'}"
-        )
-        print(
-            "Minimum pairwise rank agreement: "
-            f"{stability.min_rank_agreement:.1%}"
-        )
-        print(
-            f"Maximum probability delta: "
-            f"{stability.max_probability_delta:.4f}"
-        )
-
         task_map = {task.id: task for task in tasks}
         deterministic_rank = {
             task_id: index
             for index, task_id in enumerate(deterministic_ids, start=1)
         }
         print("")
-        print(f"Top {min(args.top, len(ai_ids))} Kev consensus tasks:")
-        print("ID   det   ai   probability   rank-range   pri   due          task")
+        print(f"Top {min(args.top, len(ai_ids))} Kev packed-score tasks:")
+        print("ID   det   ai   score    pri   due          task")
         for ai_position, task_id in enumerate(ai_ids[: args.top], start=1):
             task = task_map[task_id]
-            low, high = stability.rank_ranges[task_id]
-            rank_range = str(low) if low == high else f"{low}-{high}"
             print(
                 f"{task_id:03d}  {deterministic_rank[task_id]:>4}  "
                 f"{ai_position:>3}   "
-                f"{stability.ranking.probabilities[task_id]:.4f}       "
-                f"{rank_range:<10} "
+                f"{ai_result.scores[task_id]:.4f}   "
                 f"{task.priority:<6} "
                 f"{(task.due_at or '-'): <12} "
                 f"{task.text}"
             )
+
+        print("")
+        print(
+            f"Top-{min(max_items, len(tasks))} cutoff IDs: "
+            + ", ".join(
+                f"{task_id:03d}"
+                for task_id in ai_ids[:max_items]
+            )
+        )
 
         if ai_score.failures:
             print("")
