@@ -6,6 +6,13 @@ from pathlib import Path
 
 from .ai import run_kev_consensus
 from .ai_benchmark import load_benchmark_cases, run_benchmark, run_stability
+from .ai_judgment import (
+    DEFAULT_JUDGMENT_DB,
+    DEFAULT_JUDGMENT_SET,
+    load_judgment_set,
+    score_judgments,
+    seed_judgment_database,
+)
 from .config import load_ai_settings, load_daily_settings, load_telegram_settings
 from .db import (
     DEFAULT_DB,
@@ -95,6 +102,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ai_benchmark.add_argument("--device", choices=["auto", "cpu", "cuda"])
 
+    ai_judgment = sub.add_parser(
+        "ai-judgment",
+        help="Seed and evaluate the checked-in 100-task judgment set",
+    )
+    ai_judgment.add_argument("--config", type=Path)
+    ai_judgment.add_argument(
+        "--dataset",
+        type=Path,
+        default=DEFAULT_JUDGMENT_SET,
+    )
+    ai_judgment.add_argument("--device", choices=["auto", "cpu", "cuda"])
+    ai_judgment.add_argument(
+        "--max-items",
+        type=int,
+        help="Override the top-N printed-set cutoff for this evaluation",
+    )
+    ai_judgment.add_argument(
+        "--top",
+        type=int,
+        default=15,
+        help="Number of top-ranked tasks to print",
+    )
+
     telegram = sub.add_parser("telegram", help="Run the Telegram listener")
     telegram.add_argument("--config", type=Path, default=Path("config.local.toml"))
     return parser
@@ -132,6 +162,140 @@ def _ai_error(message: str) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.command == "ai-judgment":
+        config_path = _daily_config_path(args.config)
+        ai_settings = load_ai_settings(config_path)
+        daily_settings = load_daily_settings(config_path)
+        dataset = load_judgment_set(args.dataset)
+        db_path = args.db or DEFAULT_JUDGMENT_DB
+        conn = connect(db_path)
+        seed_judgment_database(
+            conn,
+            db_path=db_path,
+            dataset=dataset,
+        )
+
+        tasks = list_open_tasks(conn)
+        deterministic = rank_tasks(tasks, today=dataset.reference_date)
+        deterministic_ids = [task.id for task in deterministic]
+        max_items = args.max_items or daily_settings.max_items
+        if max_items < 1:
+            raise ValueError("--max-items must be at least 1")
+
+        stability = run_stability(
+            deterministic,
+            today=dataset.reference_date,
+            max_items=max_items,
+            python_path=ai_settings.python_path,
+            bridge_path=ai_settings.bridge_path,
+            model=ai_settings.model,
+            device=args.device or ai_settings.device,
+            timeout_seconds=ai_settings.timeout_seconds,
+        )
+        ai_ids = stability.ranking.task_ids
+
+        deterministic_score = score_judgments(
+            deterministic_ids,
+            dataset.judgments,
+        )
+        ai_score = score_judgments(
+            ai_ids,
+            dataset.judgments,
+        )
+
+        print(f"Dataset: {args.dataset}")
+        print(f"Database: {db_path}")
+        print(
+            f"Tasks: {len(dataset.tasks)}  "
+            f"Judgments: {len(dataset.judgments)}  "
+            f"Reference date: {dataset.reference_date.isoformat()}"
+        )
+        print(f"Model: {stability.ranking.model}")
+        print(f"Device: {stability.ranking.device or 'unknown'}")
+        if stability.ranking.load_ms is not None:
+            print(f"Load: {stability.ranking.load_ms:.0f} ms")
+        if stability.ranking.inference_ms is not None:
+            print(f"Consensus inference: {stability.ranking.inference_ms:.0f} ms")
+
+        print("")
+        print(
+            f"Deterministic judgments: "
+            f"{deterministic_score.passed}/{deterministic_score.total} "
+            f"({deterministic_score.rate:.1%})"
+        )
+        print(
+            f"Kev consensus judgments: "
+            f"{ai_score.passed}/{ai_score.total} "
+            f"({ai_score.rate:.1%})"
+        )
+        print("")
+        print("category                  deterministic        kev")
+        categories = sorted(
+            set(deterministic_score.by_category) | set(ai_score.by_category)
+        )
+        for category in categories:
+            det_passed, det_total = deterministic_score.by_category[category]
+            ai_passed, ai_total = ai_score.by_category[category]
+            print(
+                f"{category:<25} "
+                f"{det_passed:>3}/{det_total:<3} "
+                f"({det_passed / det_total:>5.1%})   "
+                f"{ai_passed:>3}/{ai_total:<3} "
+                f"({ai_passed / ai_total:>5.1%})"
+            )
+
+        print("")
+        print(
+            "All raw passes agree on consensus winner: "
+            f"{'yes' if stability.stable_top else 'NO'}"
+        )
+        print(
+            f"All raw passes match consensus printed set "
+            f"(top {min(max_items, len(tasks))}): "
+            f"{'yes' if stability.stable_selected_set else 'NO'}"
+        )
+        print(
+            "Minimum pairwise rank agreement: "
+            f"{stability.min_rank_agreement:.1%}"
+        )
+        print(
+            f"Maximum probability delta: "
+            f"{stability.max_probability_delta:.4f}"
+        )
+
+        task_map = {task.id: task for task in tasks}
+        deterministic_rank = {
+            task_id: index
+            for index, task_id in enumerate(deterministic_ids, start=1)
+        }
+        print("")
+        print(f"Top {min(args.top, len(ai_ids))} Kev consensus tasks:")
+        print("ID   det   ai   probability   rank-range   pri   due          task")
+        for ai_position, task_id in enumerate(ai_ids[: args.top], start=1):
+            task = task_map[task_id]
+            low, high = stability.rank_ranges[task_id]
+            rank_range = str(low) if low == high else f"{low}-{high}"
+            print(
+                f"{task_id:03d}  {deterministic_rank[task_id]:>4}  "
+                f"{ai_position:>3}   "
+                f"{stability.ranking.probabilities[task_id]:.4f}       "
+                f"{rank_range:<10} "
+                f"{task.priority:<6} "
+                f"{(task.due_at or '-'): <12} "
+                f"{task.text}"
+            )
+
+        if ai_score.failures:
+            print("")
+            print(f"First {min(10, len(ai_score.failures))} Kev judgment failures:")
+            for judgment in ai_score.failures[:10]:
+                print(
+                    f"- [{judgment.category}] "
+                    f"#{judgment.before} should rank before #{judgment.after}: "
+                    f"{judgment.reason}"
+                )
+        return
 
     if args.command == "ai-benchmark":
         config_path = _daily_config_path(args.config)
