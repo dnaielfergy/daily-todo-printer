@@ -11,10 +11,12 @@ from receipt_todo.ai import (
     AIRanking,
     AIRankingError,
     build_kev_request,
+    build_kev_task_scoring_request,
     consensus_ranking,
     kev_option_permutations,
     rank_from_probabilities,
     run_kev_ranking,
+    run_kev_task_scoring,
 )
 from receipt_todo.config import load_ai_settings
 from receipt_todo.db import Task
@@ -53,6 +55,63 @@ class AIRankingTests(unittest.TestCase):
         )
         self.assertEqual(result.task_ids, [1, 2, 3])
         self.assertEqual(result.probabilities[1], 0.50)
+
+    def test_task_scoring_request_has_derived_date_facts(self) -> None:
+        due = Task(
+            id=7,
+            text="Pay bill",
+            status="open",
+            created_at="2026-10-01T00:00:00+00:00",
+            completed_at=None,
+            due_at="2026-10-08",
+            created_by="tester",
+            source="cli",
+            priority="high",
+        )
+        request = build_kev_task_scoring_request(
+            [due],
+            today=date(2026, 10, 9),
+        )
+        facts = request["state"]["tasks"][0]
+        self.assertEqual(facts["due_state"], "overdue")
+        self.assertEqual(facts["days_until_due"], -1)
+        self.assertEqual(facts["age_days"], 8)
+        self.assertEqual(
+            request["questions"]["task_7"]["type"],
+            "noul",
+        )
+
+    def test_packed_task_scores_rank_by_probability_with_deterministic_ties(self) -> None:
+        tasks = [task(2), task(1), task(3)]
+        body = {
+            "model": "test",
+            "device": "cpu",
+            "load_ms": 10,
+            "results": [
+                {
+                    "id": "daily-score",
+                    "inference_ms": 20,
+                    "answers": {
+                        "task_1": {"type": "noul", "noul": 0.7},
+                        "task_2": {"type": "noul", "noul": 0.7},
+                        "task_3": {"type": "noul", "noul": 0.2},
+                    },
+                }
+            ],
+        }
+        with patch("receipt_todo.ai._run_kev_bridge", return_value=body):
+            result = run_kev_task_scoring(
+                tasks,
+                today=date(2026, 10, 9),
+                python_path=Path("python.exe"),
+                bridge_path=Path("bridge.py"),
+                model="test",
+                device="cpu",
+            )
+
+        self.assertEqual(result.task_ids, [2, 1, 3])
+        self.assertEqual(result.scores[1], 0.7)
+        self.assertEqual(result.inference_ms, 20)
 
     def test_consensus_averages_permutations_and_is_input_order_independent(self) -> None:
         rankings = [
