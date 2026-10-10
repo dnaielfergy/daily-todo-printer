@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 import json
 import math
 import os
@@ -20,6 +20,16 @@ class AIRankingError(RuntimeError):
 class AIRanking:
     task_ids: list[int]
     probabilities: dict[int, float]
+    model: str
+    load_ms: float | None = None
+    inference_ms: float | None = None
+    device: str | None = None
+
+
+@dataclass(frozen=True)
+class AITaskScores:
+    task_ids: list[int]
+    scores: dict[int, float]
     model: str
     load_ms: float | None = None
     inference_ms: float | None = None
@@ -161,6 +171,144 @@ def consensus_ranking(rankings: list[AIRanking]) -> AIRanking:
         load_ms=first.load_ms,
         inference_ms=sum(inference_values) if inference_values else None,
         device=first.device,
+    )
+
+
+def _task_facts(task: Task, *, today: date) -> dict:
+    try:
+        created_date = datetime.fromisoformat(task.created_at.replace("Z", "+00:00")).date()
+        age_days = (today - created_date).days
+    except ValueError:
+        age_days = None
+
+    due_state = "none"
+    days_until_due = None
+    if task.due_at:
+        try:
+            due_date = date.fromisoformat(task.due_at[:10])
+            days_until_due = (due_date - today).days
+            if days_until_due < 0:
+                due_state = "overdue"
+            elif days_until_due == 0:
+                due_state = "today"
+            else:
+                due_state = "future"
+        except ValueError:
+            due_state = "invalid"
+
+    return {
+        "id": task.id,
+        "text": task.text,
+        "priority": task.priority,
+        "due_at": task.due_at,
+        "due_state": due_state,
+        "days_until_due": days_until_due,
+        "created_at": task.created_at,
+        "age_days": age_days,
+        "created_by": task.created_by,
+    }
+
+
+def build_kev_task_scoring_request(tasks: list[Task], *, today: date) -> dict:
+    canonical = sorted(tasks, key=lambda task: task.id)
+    state = {
+        "today": today.isoformat(),
+        "goal": "Rank the listed open tasks for what should be worked on today.",
+        "guidance": (
+            "Treat explicit priority and due-date facts as authoritative signals. "
+            "Use task meaning, urgency, consequence, and age to resolve tradeoffs. "
+            "Do not change task facts."
+        ),
+        "tasks": [_task_facts(task, today=today) for task in canonical],
+    }
+    questions = {
+        f"task_{task.id}": {
+            "type": "noul",
+            "instructions": (
+                f"Should task #{task.id} be prioritized highly for today relative "
+                "to the other listed tasks?"
+            ),
+            "criteria": {
+                "true": "Yes — this belongs near the top of today's list.",
+                "false": "No — other listed tasks should generally come first.",
+            },
+        }
+        for task in canonical
+    }
+    return {
+        "state": state,
+        "questions": questions,
+    }
+
+
+def run_kev_task_scoring(
+    tasks: list[Task],
+    *,
+    today: date,
+    python_path: Path,
+    bridge_path: Path,
+    model: str,
+    device: str = "auto",
+    timeout_seconds: int = 180,
+    repo_root: Path | None = None,
+) -> AITaskScores:
+    if not tasks:
+        return AITaskScores(task_ids=[], scores={}, model=model)
+
+    request = build_kev_task_scoring_request(tasks, today=today)
+    body = _run_kev_bridge(
+        [{"id": "daily-score", **request}],
+        python_path=python_path,
+        bridge_path=bridge_path,
+        model=model,
+        device=device,
+        timeout_seconds=timeout_seconds,
+        repo_root=repo_root,
+    )
+
+    try:
+        result = body["results"][0]
+        answers = result["answers"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise AIRankingError("Kev returned malformed task-scoring output") from exc
+
+    expected = {task.id for task in tasks}
+    scores: dict[int, float] = {}
+    for task_id in expected:
+        answer = answers.get(f"task_{task_id}")
+        if not isinstance(answer, dict) or answer.get("type") != "noul":
+            raise AIRankingError(f"Kev did not return a noul score for task {task_id}")
+        try:
+            score = float(answer["noul"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AIRankingError(f"Kev returned an invalid score for task {task_id}") from exc
+        if not math.isfinite(score) or not 0.0 <= score <= 1.0:
+            raise AIRankingError(f"Kev returned an invalid score for task {task_id}")
+        scores[task_id] = score
+
+    if len(scores) != len(expected):
+        raise AIRankingError("Kev task-scoring output is incomplete")
+
+    deterministic_position = {
+        task.id: index
+        for index, task in enumerate(tasks)
+    }
+    task_ids = sorted(
+        scores,
+        key=lambda task_id: (
+            -scores[task_id],
+            deterministic_position.get(task_id, len(tasks)),
+            task_id,
+        ),
+    )
+
+    return AITaskScores(
+        task_ids=task_ids,
+        scores=scores,
+        model=str(body.get("model") or model),
+        load_ms=_optional_float(body.get("load_ms")),
+        inference_ms=_optional_float(result.get("inference_ms")),
+        device=str(body.get("device") or device),
     )
 
 
