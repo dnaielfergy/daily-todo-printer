@@ -266,3 +266,49 @@ Local AI is optional. To remove it:
 2. remove the ignored `.ai/` directory if desired.
 
 Telegram, SQLite, deterministic planning, scheduling, and printing continue to work without Kev.
+
+
+## 100-task judgment set
+
+Before production AI is enabled, run the expanded checked-in judgment set. It contains:
+
+- 100 synthetic/sanitized open tasks,
+- Low / Medium / High priorities,
+- overdue, due-today, future, and undated work,
+- realistic creation ages,
+- 100 explicit pairwise judgments across priority, deadline, semantic urgency, semantic importance, age tie-breaks, and mixed-signal cases.
+
+The command recreates a disposable SQLite database at `data/tasks.judgment.db` and refuses to seed `data/tasks.db`.
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe ai-judgment
+```
+
+The resulting database remains local and can be inspected with ordinary commands:
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe --db data\tasks.judgment.db list
+```
+
+The evaluation runs deterministic ranking and Kev consensus across the full 100-task open list, then reports:
+
+- deterministic judgment pass rate,
+- Kev judgment pass rate,
+- pass rate by judgment category,
+- model load and total consensus inference time,
+- raw-pass agreement on the consensus winner,
+- raw-pass agreement on the top-N printed set,
+- minimum pairwise full-rank agreement,
+- maximum probability delta,
+- top-ranked task details and rank ranges,
+- the first few failed Kev judgments for review.
+
+By default, printed-set stability uses the configured `daily.max_items`. Override it only for evaluation with:
+
+```powershell
+.\.venv\Scripts\receipt-todo.exe ai-judgment --max-items 10
+```
+
+The judgment fixture is fixed to its own reference date so results remain comparable over time.
+
+Do not move to production scheduler hardening until the 100-task results have been reviewed.
