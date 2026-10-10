@@ -1,0 +1,1409 @@
+{
+  "version": 1,
+  "reference_date": "2026-10-09",
+  "description": "Synthetic 100-task ranking judgment set. Contains no real user task text.",
+  "tasks": [
+    {
+      "id": 1,
+      "text": "Send client proposal they are waiting on to approve the project",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-08T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 2,
+      "text": "Upload financial documents requested by accountant",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 3,
+      "text": "Submit conference application",
+      "priority": "medium",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-05T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 4,
+      "text": "Respond to client issue blocking production launch",
+      "priority": "high",
+      "due_at": "2026-10-08",
+      "created_at": "2026-10-08T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 5,
+      "text": "Prepare slides for Monday client review",
+      "priority": "high",
+      "due_at": "2026-10-12",
+      "created_at": "2026-10-06T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 6,
+      "text": "Draft response to client asking whether the project can start",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 7,
+      "text": "Rename archived project folders",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-26T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 8,
+      "text": "Send signed contract",
+      "priority": "high",
+      "due_at": "2026-10-07",
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 9,
+      "text": "Invoice client for completed work",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-03T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 10,
+      "text": "Follow up on sales lead",
+      "priority": "medium",
+      "due_at": "2026-10-11",
+      "created_at": "2026-10-01T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 11,
+      "text": "Write weekly status update",
+      "priority": "medium",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-06T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 12,
+      "text": "Clean up old design files",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-11T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 13,
+      "text": "Schedule project kickoff",
+      "priority": "medium",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 14,
+      "text": "Fix broken production signup form",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 15,
+      "text": "Research optional analytics tool",
+      "priority": "low",
+      "due_at": "2026-10-23",
+      "created_at": "2026-09-19T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 16,
+      "text": "Pay credit card bill",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 17,
+      "text": "Pay parking ticket before late fee",
+      "priority": "high",
+      "due_at": "2026-10-10",
+      "created_at": "2026-09-29T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 18,
+      "text": "Review bank account after an unknown charge appeared",
+      "priority": "high",
+      "due_at": null,
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 19,
+      "text": "File expense reimbursement",
+      "priority": "medium",
+      "due_at": "2026-10-06",
+      "created_at": "2026-09-27T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 20,
+      "text": "Cancel unused SaaS subscription before renewal",
+      "priority": "medium",
+      "due_at": "2026-10-11",
+      "created_at": "2026-09-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 21,
+      "text": "Organize tax receipts for next month",
+      "priority": "medium",
+      "due_at": "2026-11-08",
+      "created_at": "2026-08-25T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 22,
+      "text": "Reformat monthly budget spreadsheet colors",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-08-30T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 23,
+      "text": "Move savings to a higher-yield account",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-04T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 24,
+      "text": "Request W-9 from contractor",
+      "priority": "medium",
+      "due_at": "2026-10-13",
+      "created_at": "2026-10-02T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 25,
+      "text": "Renew business license",
+      "priority": "high",
+      "due_at": "2026-10-14",
+      "created_at": "2026-09-19T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 26,
+      "text": "Download last year's tax transcript",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-14T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 27,
+      "text": "Pay utility bill",
+      "priority": "high",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-03T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 28,
+      "text": "Deposit reimbursement check",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-09-25T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 29,
+      "text": "Shred old bank statements",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-01T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 30,
+      "text": "Compare travel credit cards",
+      "priority": "low",
+      "due_at": "2026-10-30",
+      "created_at": "2026-09-24T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 31,
+      "text": "Call doctor about worsening chest pain",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 32,
+      "text": "Schedule dentist because a tooth has started hurting",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-10-06T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 33,
+      "text": "Schedule routine eye exam",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-08-10T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 34,
+      "text": "Refill prescription with only two doses left",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-08T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 35,
+      "text": "Schedule annual physical",
+      "priority": "medium",
+      "due_at": "2026-11-08",
+      "created_at": "2026-08-30T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 36,
+      "text": "Pick up prescription before pharmacy closes",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 37,
+      "text": "Book routine dental cleaning",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-08-20T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 38,
+      "text": "Submit insurance claim for recent visit",
+      "priority": "medium",
+      "due_at": "2026-10-16",
+      "created_at": "2026-09-29T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 39,
+      "text": "Call insurance about denied claim",
+      "priority": "medium",
+      "due_at": "2026-10-11",
+      "created_at": "2026-10-05T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 40,
+      "text": "Order new glasses case",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-04T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 41,
+      "text": "Schedule flu shot",
+      "priority": "low",
+      "due_at": "2026-10-30",
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 42,
+      "text": "Fill out specialist intake forms",
+      "priority": "medium",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-06T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 43,
+      "text": "Reschedule optional massage",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-24T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 44,
+      "text": "Book dermatology follow-up",
+      "priority": "medium",
+      "due_at": "2026-10-23",
+      "created_at": "2026-09-19T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 45,
+      "text": "Replace expired first-aid supplies",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-21T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 46,
+      "text": "Turn off water and call plumber for active leak",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 47,
+      "text": "Replace smoke detector battery that is chirping",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-08T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 48,
+      "text": "Schedule HVAC maintenance",
+      "priority": "medium",
+      "due_at": "2026-10-23",
+      "created_at": "2026-09-14T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 49,
+      "text": "Take trash bins out for morning pickup",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 50,
+      "text": "Patch small wall scuff",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-06T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 51,
+      "text": "Call landlord about broken heater",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-08T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 52,
+      "text": "Order replacement air filter",
+      "priority": "low",
+      "due_at": "2026-10-16",
+      "created_at": "2026-09-27T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 53,
+      "text": "Clean garage shelves",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-16T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 54,
+      "text": "Fix front door lock that is sticking badly",
+      "priority": "high",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 55,
+      "text": "Water houseplants",
+      "priority": "medium",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-05T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 56,
+      "text": "Deep-clean oven",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-08-15T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 57,
+      "text": "Book electrician for flickering outlet",
+      "priority": "high",
+      "due_at": "2026-10-11",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 58,
+      "text": "Measure closet for shelves",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 59,
+      "text": "Replace bathroom light bulb",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-19T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 60,
+      "text": "Schedule gutter cleaning",
+      "priority": "medium",
+      "due_at": "2026-10-23",
+      "created_at": "2026-08-30T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 61,
+      "text": "Book Japan omakase when reservations open this morning",
+      "priority": "medium",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 62,
+      "text": "Renew passport before international trip",
+      "priority": "high",
+      "due_at": "2026-10-19",
+      "created_at": "2026-09-24T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 63,
+      "text": "Buy train tickets before prices rise",
+      "priority": "medium",
+      "due_at": "2026-10-11",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 64,
+      "text": "Confirm hotel cancellation deadline",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-05T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 65,
+      "text": "Create packing list for trip next month",
+      "priority": "low",
+      "due_at": "2026-10-30",
+      "created_at": "2026-10-01T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 66,
+      "text": "Apply for travel visa",
+      "priority": "high",
+      "due_at": "2026-10-12",
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 67,
+      "text": "Reserve airport parking",
+      "priority": "medium",
+      "due_at": "2026-10-16",
+      "created_at": "2026-10-02T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 68,
+      "text": "Research neighborhood restaurants",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 69,
+      "text": "Download offline maps",
+      "priority": "low",
+      "due_at": "2026-10-29",
+      "created_at": "2026-09-29T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 70,
+      "text": "Check flight seat assignments",
+      "priority": "low",
+      "due_at": "2026-10-23",
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 71,
+      "text": "Buy groceries for tonight's dinner",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 72,
+      "text": "Pick up dry cleaning before closing",
+      "priority": "medium",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-06T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 73,
+      "text": "Return online purchase before return window closes",
+      "priority": "medium",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-01T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 74,
+      "text": "Mail birthday gift so it arrives next week",
+      "priority": "medium",
+      "due_at": "2026-10-11",
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 75,
+      "text": "Replace phone charging cable",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-14T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 76,
+      "text": "Call friend back after urgent voicemail",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 77,
+      "text": "RSVP to wedding before deadline",
+      "priority": "medium",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-03T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 78,
+      "text": "Buy anniversary gift",
+      "priority": "high",
+      "due_at": "2026-10-12",
+      "created_at": "2026-10-01T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 79,
+      "text": "Plan a casual dinner menu for next month",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-09-21T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 80,
+      "text": "Reply to non-urgent group chat",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-08-25T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 81,
+      "text": "Send thank-you note after interview",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-08T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 82,
+      "text": "Confirm babysitter for Saturday",
+      "priority": "high",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 83,
+      "text": "Schedule coffee with former coworker",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-04T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 84,
+      "text": "Upload family photos to shared album",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-11T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 85,
+      "text": "Renew library books",
+      "priority": "medium",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-02T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 86,
+      "text": "Register child for camp before spots fill",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 87,
+      "text": "Choose photos for holiday card",
+      "priority": "low",
+      "due_at": "2026-11-08",
+      "created_at": "2026-09-27T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 88,
+      "text": "Call sibling for birthday",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-07T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 89,
+      "text": "Update emergency contact information after moving",
+      "priority": "medium",
+      "due_at": null,
+      "created_at": "2026-10-04T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 90,
+      "text": "Declutter coat closet",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-31T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 91,
+      "text": "Delete duplicate screenshots",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-08-05T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 92,
+      "text": "Unsubscribe from old newsletters",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-08-20T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 93,
+      "text": "Back up laptop before operating-system upgrade",
+      "priority": "medium",
+      "due_at": "2026-10-10",
+      "created_at": "2026-10-06T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 94,
+      "text": "Install critical security update",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 95,
+      "text": "Rename old photo folders",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-01T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 96,
+      "text": "Clean downloads folder",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-07-21T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 97,
+      "text": "Review password-manager security alert",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 98,
+      "text": "Sort browser bookmarks",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-09-14T12:00:00+00:00",
+      "created_by": "alex"
+    },
+    {
+      "id": 99,
+      "text": "Archive completed project email threads",
+      "priority": "low",
+      "due_at": null,
+      "created_at": "2026-08-10T12:00:00+00:00",
+      "created_by": "sam"
+    },
+    {
+      "id": 100,
+      "text": "Recover important file from failing external drive",
+      "priority": "high",
+      "due_at": "2026-10-09",
+      "created_at": "2026-10-09T12:00:00+00:00",
+      "created_by": "alex"
+    }
+  ],
+  "judgments": [
+    {
+      "before": 1,
+      "after": 6,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 8,
+      "after": 7,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 9,
+      "after": 12,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 14,
+      "after": 15,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 16,
+      "after": 22,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 25,
+      "after": 21,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 27,
+      "after": 23,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 34,
+      "after": 37,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 36,
+      "after": 40,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 47,
+      "after": 52,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 51,
+      "after": 60,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 54,
+      "after": 58,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 62,
+      "after": 65,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 66,
+      "after": 68,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 76,
+      "after": 80,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 81,
+      "after": 83,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 82,
+      "after": 79,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 86,
+      "after": 87,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 94,
+      "after": 96,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 97,
+      "after": 98,
+      "category": "priority",
+      "reason": "Explicit priority should dominate a similarly timed lower-priority task."
+    },
+    {
+      "before": 11,
+      "after": 10,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 13,
+      "after": 6,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 19,
+      "after": 22,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 20,
+      "after": 22,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 24,
+      "after": 22,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 39,
+      "after": 35,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 42,
+      "after": 35,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 55,
+      "after": 48,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 61,
+      "after": 67,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 63,
+      "after": 67,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 72,
+      "after": 73,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 73,
+      "after": 74,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 74,
+      "after": 79,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 77,
+      "after": 79,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 85,
+      "after": 89,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 93,
+      "after": 89,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 17,
+      "after": 62,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 25,
+      "after": 62,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 57,
+      "after": 62,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 82,
+      "after": 78,
+      "category": "deadline",
+      "reason": "The nearer or already-missed deadline should rank first when priority is comparable."
+    },
+    {
+      "before": 31,
+      "after": 49,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 46,
+      "after": 49,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 51,
+      "after": 49,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 34,
+      "after": 49,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 36,
+      "after": 49,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 47,
+      "after": 49,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 14,
+      "after": 9,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 4,
+      "after": 8,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 97,
+      "after": 88,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 100,
+      "after": 88,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 76,
+      "after": 88,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 54,
+      "after": 17,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 57,
+      "after": 25,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 18,
+      "after": 25,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 86,
+      "after": 88,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 64,
+      "after": 88,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 61,
+      "after": 72,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 73,
+      "after": 77,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 32,
+      "after": 33,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 100,
+      "after": 94,
+      "category": "semantic_urgency",
+      "reason": "Task meaning indicates a more immediate consequence despite similar explicit metadata."
+    },
+    {
+      "before": 6,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 28,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 89,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 32,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 3,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 10,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 38,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 39,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 42,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 44,
+      "after": 22,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 63,
+      "after": 68,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 67,
+      "after": 68,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 74,
+      "after": 80,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 77,
+      "after": 80,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 81,
+      "after": 80,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 83,
+      "after": 92,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 89,
+      "after": 92,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 93,
+      "after": 96,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 18,
+      "after": 29,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 28,
+      "after": 29,
+      "category": "semantic_importance",
+      "reason": "The task meaning represents a more consequential obligation than routine housekeeping."
+    },
+    {
+      "before": 95,
+      "after": 91,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 96,
+      "after": 98,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 53,
+      "after": 56,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 50,
+      "after": 59,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 90,
+      "after": 84,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 29,
+      "after": 26,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 12,
+      "after": 7,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 45,
+      "after": 40,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 92,
+      "after": 98,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 99,
+      "after": 98,
+      "category": "age_tiebreak",
+      "reason": "With otherwise low-stakes comparable work, the older task should win the tie-break."
+    },
+    {
+      "before": 31,
+      "after": 16,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 46,
+      "after": 9,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 32,
+      "after": 21,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 18,
+      "after": 62,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 6,
+      "after": 24,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 89,
+      "after": 35,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 100,
+      "after": 17,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 61,
+      "after": 39,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 86,
+      "after": 16,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    },
+    {
+      "before": 97,
+      "after": 16,
+      "category": "mixed_signal",
+      "reason": "This pair intentionally requires balancing explicit metadata with the consequence described in the task text."
+    }
+  ]
+}
