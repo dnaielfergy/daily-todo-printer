@@ -55,10 +55,16 @@ def main() -> None:
             if not request_id:
                 raise ValueError("each request requires an id")
 
+            questions = item.get("questions")
+            if questions is None:
+                questions = {"priority": item.get("question")}
+            if not isinstance(questions, dict) or not questions:
+                raise ValueError("each request requires question or questions")
+
             request = SystemOneRequest(
                 state=item.get("state"),
                 model="kev-latest",
-                questions={"priority": item.get("question")},
+                questions=questions,
             )
             record, meta = to_record(request)
             encoded = admit(model, tokenizer, record)
@@ -73,14 +79,15 @@ def main() -> None:
             inference_ms = (time.perf_counter() - started) * 1000
 
             answers = to_answers([values.tolist() for values in probabilities], meta)
-            choice = answers["priority"]
-            results.append(
-                {
-                    "id": request_id,
-                    "probabilities": choice["probabilities"],
-                    "inference_ms": round(inference_ms, 3),
-                }
-            )
+            result = {
+                "id": request_id,
+                "answers": answers,
+                "inference_ms": round(inference_ms, 3),
+            }
+            priority = answers.get("priority")
+            if isinstance(priority, dict) and priority.get("type") == "choice":
+                result["probabilities"] = priority["probabilities"]
+            results.append(result)
 
     print(
         json.dumps(
