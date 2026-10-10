@@ -66,6 +66,7 @@ def load_judgment_set(path: Path) -> JudgmentSet:
         )
 
     judgments: list[Judgment] = []
+    seen_judgments: set[tuple[int, int]] = set()
     for item in raw["judgments"]:
         judgment = Judgment(
             before=int(item["before"]),
@@ -80,7 +81,33 @@ def load_judgment_set(path: Path) -> JudgmentSet:
                 f"judgment references unknown task: "
                 f"{judgment.before} before {judgment.after}"
             )
+        key = (judgment.before, judgment.after)
+        if key in seen_judgments:
+            raise ValueError(
+                f"duplicate judgment: {judgment.before} before {judgment.after}"
+            )
+        seen_judgments.add(key)
         judgments.append(judgment)
+
+    graph = {task_id: [] for task_id in seen_task_ids}
+    for judgment in judgments:
+        graph[judgment.before].append(judgment.after)
+    visiting: set[int] = set()
+    visited: set[int] = set()
+
+    def visit(task_id: int) -> None:
+        if task_id in visiting:
+            raise ValueError("judgment set contains a cycle")
+        if task_id in visited:
+            return
+        visiting.add(task_id)
+        for child in graph[task_id]:
+            visit(child)
+        visiting.remove(task_id)
+        visited.add(task_id)
+
+    for task_id in graph:
+        visit(task_id)
 
     if not tasks:
         raise ValueError("judgment set must contain tasks")
