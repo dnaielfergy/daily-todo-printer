@@ -290,17 +290,18 @@ The resulting database remains local and can be inspected with ordinary commands
 .\.venv\Scripts\receipt-todo.exe --db data\tasks.judgment.db list
 ```
 
-The evaluation runs deterministic ranking and Kev consensus across the full 100-task open list, then reports:
+The evaluation runs deterministic ranking and Kev packed task scoring across the full 100-task open list.
+
+For the large-list path, all 100 tasks are placed in one canonical shared state. Kev receives one independent yes/no priority question per task and returns a calibrated `p(yes)`; the application sorts those scores descending and uses deterministic rank only to break exact ties. The application also provides deterministic date/age facts (`due_state`, `days_until_due`, `age_days`) so the model does not need to perform date arithmetic.
+
+It reports:
 
 - deterministic judgment pass rate,
-- Kev judgment pass rate,
+- Kev packed-score judgment pass rate,
 - pass rate by judgment category,
-- model load and total consensus inference time,
-- raw-pass agreement on the consensus winner,
-- raw-pass agreement on the top-N printed set,
-- minimum pairwise full-rank agreement,
-- maximum probability delta,
-- top-ranked task details and rank ranges,
+- model load and packed inference time,
+- top-N cutoff IDs,
+- top-ranked task details and scores,
 - the first few failed Kev judgments for review.
 
 By default, printed-set stability uses the configured `daily.max_items`. Override it only for evaluation with:
@@ -312,3 +313,10 @@ By default, printed-set stability uses the configured `daily.max_items`. Overrid
 The judgment fixture is fixed to its own reference date so results remain comparable over time.
 
 Do not move to production scheduler hardening until the 100-task results have been reviewed.
+
+
+### Why the 100-task path does not use choice consensus
+
+The first 100-task attempt used five 100-option Choice passes and exceeded the 180-second evaluation timeout on the target CPU. Running those passes in parallel would load/execute competing model work on the same six-core machine and is not the preferred fix.
+
+Kev supports many independent typed questions against one shared state. The large-list experiment therefore uses one shared 100-task state plus one Noul (yes/no) priority question per task. This removes cross-task option-order dependence and is the scale path under evaluation. The earlier Choice consensus remains useful for the small-list experiments that exposed option-order sensitivity, but it is not considered viable for 100-task production lists.
