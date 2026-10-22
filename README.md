@@ -185,6 +185,15 @@ After the real Telegram flow is validated, open PowerShell as Administrator and 
 
 The scheduled task runs at Windows startup as `SYSTEM`, restarts after failures, and invokes `scripts\run-telegram.ps1` from the repository so the SQLite database stays at `data/tasks.db`.
 
+The listener must run indefinitely: the installer disables Task Scheduler's default 72-hour execution limit and allows the listener to start and keep running on battery power. If the task is already installed, rerun `scripts\install-telegram-task.ps1` from an **elevated PowerShell session** after updating the code, then start the task again. Verify the resulting settings:
+
+```powershell
+(Get-ScheduledTask -TaskName "Daily Todo Printer - Telegram").Settings |
+    Select-Object ExecutionTimeLimit, StopIfGoingOnBatteries, DisallowStartIfOnBatteries, RestartCount
+```
+
+Expected: `PT0S`, `False`, `False`, and `10`, respectively.
+
 ## Daily morning receipt
 
 Task priority is explicit task truth:
