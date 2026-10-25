@@ -101,7 +101,8 @@ def main() -> None:
                 token=settings.token,
             )
             sha = client.commit_sha()
-            state_key = f"recipe_inbox:last_sha:{settings.repo}:{settings.ref}"
+            # New key forces a one-time reconciliation on upgrade, even if GitHub HEAD is unchanged.
+            state_key = f"recipe_inbox:last_sha:reconcile_v2:{settings.repo}:{settings.ref}"
             last = conn.execute("SELECT value FROM app_state WHERE key = ?", (state_key,)).fetchone()
             if not args.preview and not args.refresh and last is not None and last["value"] == sha:
                 print(f"Recipe inbox already current at {sha[:12]}")
@@ -122,7 +123,8 @@ def main() -> None:
         elif args.recipe_command == "list":
             for row in list_recipe_jobs(conn):
                 payload = json.loads(row["payload_json"])
-                print(f'{row["job_id"]} [{row["status"]}] {payload["date"]} {payload["meal"]}: {payload["recipe"]["title"]}')
+                state = row["status"] + (", withdrawn" if not row["inbox_active"] else "")
+                print(f'{row["job_id"]} [{state}] {payload["date"]} {payload["meal"]}: {payload["recipe"]["title"]}')
         elif args.recipe_command == "preview":
             row = get_recipe_job(conn, args.job_id)
             print(render_recipe_job(json.loads(row["payload_json"])))
