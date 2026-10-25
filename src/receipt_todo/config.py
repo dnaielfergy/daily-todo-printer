@@ -26,6 +26,13 @@ class DailySettings:
     printer_name: str | None = None
 
 
+@dataclass(frozen=True)
+class RecipeInboxSettings:
+    repo: str
+    ref: str
+    token: str
+
+
 def _load_config(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -92,3 +99,17 @@ def load_daily_settings(path: Path) -> DailySettings:
             printer_name = str(telegram.get("printer_name", "")).strip() or None
 
     return DailySettings(max_items=max_items, printer_name=printer_name)
+
+def load_recipe_inbox_settings(path: Path) -> RecipeInboxSettings:
+    data = _load_config(path)
+    inbox = data.get("recipe_inbox")
+    if not isinstance(inbox, dict):
+        raise ValueError("config must contain a [recipe_inbox] section")
+    token = os.getenv("RECIPE_INBOX_TOKEN") or str(inbox.get("token", "")).strip()
+    if not token:
+        raise ValueError("Set RECIPE_INBOX_TOKEN or recipe_inbox.token")
+    return RecipeInboxSettings(
+        repo=str(inbox.get("repo", "dnaielfergy/household-print-inbox")).strip(),
+        ref=str(inbox.get("ref", "main")).strip(),
+        token=token,
+    )
