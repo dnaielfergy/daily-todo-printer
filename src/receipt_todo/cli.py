@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from .config import load_daily_settings, load_telegram_settings
@@ -17,6 +18,10 @@ from .planner import get_or_create_daily_plan, print_daily_plan, render_plan
 from .printer import print_raw_windows
 from .receipt import escpos_receipt, render_daily_text
 from .telegram import run_listener
+from .recipes import (
+    get_recipe_job, list_recipe_jobs, load_recipe_job, print_recipe_job,
+    requeue_recipe_job, render_recipe_job, submit_recipe_job,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,6 +60,20 @@ def build_parser() -> argparse.ArgumentParser:
     daily.add_argument("--preview", action="store_true")
     daily.add_argument("--force", action="store_true")
 
+    recipes = sub.add_parser("recipe", help="Manage recipe print jobs")
+    recipes_sub = recipes.add_subparsers(dest="recipe_command", required=True)
+    submit = recipes_sub.add_parser("submit")
+    submit.add_argument("file", type=Path)
+    recipes_sub.add_parser("list")
+    preview = recipes_sub.add_parser("preview")
+    preview.add_argument("job_id")
+    recipe_print = recipes_sub.add_parser("print")
+    recipe_print.add_argument("job_id")
+    recipe_print.add_argument("--printer-name")
+    recipe_print.add_argument("--force", action="store_true")
+    requeue = recipes_sub.add_parser("requeue")
+    requeue.add_argument("job_id")
+
     telegram = sub.add_parser("telegram", help="Run the Telegram listener")
     telegram.add_argument("--config", type=Path, default=Path("config.local.toml"))
     return parser
@@ -63,6 +82,26 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     conn = connect(args.db)
+
+    if args.command == "recipe":
+        if args.recipe_command == "submit":
+            payload = load_recipe_job(args.file)
+            created = submit_recipe_job(conn, payload)
+            print(("Queued " if created else "Already queued ") + payload["job_id"])
+        elif args.recipe_command == "list":
+            for row in list_recipe_jobs(conn):
+                payload = json.loads(row["payload_json"])
+                print(f'{row["job_id"]} [{row["status"]}] {payload["date"]} {payload["meal"]}: {payload["recipe"]["title"]}')
+        elif args.recipe_command == "preview":
+            row = get_recipe_job(conn, args.job_id)
+            print(render_recipe_job(json.loads(row["payload_json"])))
+        elif args.recipe_command == "print":
+            printed = print_recipe_job(conn, args.job_id, printer_name=args.printer_name, force=args.force)
+            print(("Printed " if printed else "Already printed ") + args.job_id)
+        elif args.recipe_command == "requeue":
+            requeue_recipe_job(conn, args.job_id)
+            print("Requeued " + args.job_id)
+        return
 
     if args.command == "add":
         task = add_task(
