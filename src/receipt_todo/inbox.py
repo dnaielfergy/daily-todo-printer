@@ -10,7 +10,6 @@ import base64
 import binascii
 import hashlib
 import json
-import os
 import re
 import sqlite3
 import urllib.error
@@ -36,6 +35,16 @@ MAX_JOBS_PER_WEEK = 14
 
 class InboxError(ValueError):
     """Invalid publication, unsafe contents, or an unavailable inbox."""
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never forward a private-repository token to a redirected host."""
+
+    def redirect_request(self, request, response, code, message, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
@@ -146,7 +155,7 @@ class GitHubInboxClient:
         )
         try:
             # Limit JSON responses too, including unexpected API error bodies.
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with _OPENER.open(request, timeout=20) as response:
                 raw = response.read(MAX_FILE_SIZE * 3 + 1)
         except urllib.error.HTTPError as exc:
             # Never display credentials, request headers, or server response bodies.
