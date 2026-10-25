@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "job_id": "2026-10-26-lunch-miso-salmon-v1",
+  "date": "2026-10-26",
+  "meal": "lunch",
+  "source": {
+    "type": "manual",
+    "reference": "example"
+  },
+  "recipe": {
+    "title": "Miso Salmon Bowls",
+    "servings": 2,
+    "prep_minutes": 10,
+    "cook_minutes": 15,
+    "ingredients": [
+      {
+        "name": "salmon fillets",
+        "amount": "300 g"
+      },
+      {
+        "name": "white miso",
+        "amount": "2 tbsp"
+      },
+      {
+        "name": "cooked rice",
+        "amount": "2 bowls"
+      }
+    ],
+    "steps": [
+      "Mix the miso with a splash of water to make a glaze.",
+      "Coat salmon and cook until done.",
+      "Serve over warm rice."
+    ]
+  }
+}
