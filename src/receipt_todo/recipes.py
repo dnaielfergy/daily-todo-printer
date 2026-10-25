@@ -124,10 +124,12 @@ def submit_recipe_job(conn: sqlite3.Connection, payload: dict) -> bool:
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     with conn:
         existing = conn.execute(
-            "SELECT payload_json FROM recipe_print_jobs WHERE job_id = ?",
+            "SELECT payload_json, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
             (payload["job_id"],),
         ).fetchone()
         if existing is not None:
+            if not existing["inbox_active"]:
+                raise ValueError("job_id was withdrawn; publish a new approved job_id instead")
             if existing["payload_json"] != serialized:
                 raise ValueError("job_id already exists with different content; use a new job_id")
             return False
