@@ -10,7 +10,7 @@ $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfi
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $EveryMinutes)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 4)
 $settings.StopIfGoingOnBatteries = $false
-$settings.DisallowStartIfGoingOnBatteries = $false
+$settings.DisallowStartIfOnBatteries = $false
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -User "SYSTEM" -RunLevel Highest -Force
 Write-Host "Installed read-only recipe inbox poller: $TaskName (every $EveryMinutes minutes)"
 Write-Host "This task imports jobs but never prints them automatically."
