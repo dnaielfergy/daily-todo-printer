@@ -3,13 +3,14 @@ import base64
 import json
 import sqlite3
 import tempfile
+import urllib.error
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from receipt_todo.db import add_task, connect, list_open_tasks
 from receipt_todo.inbox import (
-    GitHubInboxClient, InboxError, _parse_json, import_snapshot, load_snapshot,
+    GitHubInboxClient, InboxError, _NoRedirect, _parse_json, import_snapshot, load_snapshot,
 )
 
 SHA = "a" * 40
@@ -197,6 +198,37 @@ class InboxTests(unittest.TestCase):
                 GitHubInboxClient(repo=repo, ref=ref, token="secret")
         with self.assertRaises(InboxError):
             GitHubInboxClient(repo="example/print", ref="main", token="")
+
+    def test_api_redirects_are_refused(self):
+        handler = _NoRedirect()
+        self.assertIsNone(
+            handler.redirect_request(None, None, 302, "Moved", {}, "https://evil.example/")
+        )
+
+    @patch("receipt_todo.inbox._OPENER.open")
+    def test_api_error_does_not_expose_token_or_response(self, open_mock):
+        open_mock.side_effect = urllib.error.HTTPError(
+            "https://api.github.com/secret", 403, "private-token", {}, None
+        )
+        client = GitHubInboxClient(repo="owner/private", ref="main", token="private-token")
+        with self.assertRaises(InboxError) as ctx:
+            client.commit_sha()
+        self.assertEqual(str(ctx.exception), "GitHub inbox HTTP 403")
+        self.assertNotIn("private-token", str(ctx.exception))
+
+    @patch("receipt_todo.inbox._OPENER.open")
+    def test_api_rejects_oversized_and_malformed_payloads(self, open_mock):
+        class Response:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, amount):
+                return b" " * amount
+        open_mock.return_value = Response()
+        client = GitHubInboxClient(repo="owner/private", ref="main", token="abc")
+        with self.assertRaisesRegex(InboxError, "exceeds size"):
+            client.commit_sha()
 
     @patch("receipt_todo.inbox._OPENER.open")
     def test_remote_api_pins_all_files_to_commit_and_uses_bearer_auth(self, urlopen):
