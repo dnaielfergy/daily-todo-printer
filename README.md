@@ -249,7 +249,7 @@ The deterministic rank is persisted separately from task truth. Daily plan items
 
 ## Recipe print jobs (source-independent)
 
-Recipe printing accepts a versioned JSON job prepared by any recipe source or agent; the local app does not own or edit a recipe library. Existing SQLite stores queued print snapshots and history. Notion/Obsidian integrations and meal scheduling can be added later without changing this contract.
+Recipe printing accepts a versioned JSON job prepared by any recipe source or agent; the local app does not own or edit a recipe library. Existing SQLite stores queued print snapshots and history. The planned upstream editor is the existing household Notion recipe library; meal scheduling remains a later, opt-in milestone.
 
 ```powershell
 receipt-todo recipe submit docs/example-recipe-job.json
@@ -260,7 +260,7 @@ receipt-todo recipe print 2026-10-26-lunch-miso-salmon-v1
 
 See [recipe job contract](docs/recipe-jobs.md) for validation, retry safety, and deliberate reprinting.
 
-### Private GitHub print inbox (Phase A)
+### Private GitHub print inbox (Phase A transport + B1 safe revisions)
 
 Approved recipe snapshots can be published to the **private** `household-print-inbox` repository. The Windows host reads them using a narrow **read-only** token and imports validated jobs into the existing SQLite database:
 
@@ -269,7 +269,7 @@ receipt-todo recipe sync --config config.local.toml --preview
 receipt-todo recipe sync --config config.local.toml
 ```
 
-This imports data only; it **does not automatically print or supersede older queued jobs**. Grocery lists, weekly plan reconciliation and scheduled printing come later. See the [GitHub print inbox setup and security guide](docs/github-print-inbox.md).
+This imports data only and **never automatically prints**. An approved higher weekly revision now marks replaced/cancelled jobs withdrawn; they remain in SQLite history but cannot be printed or requeued through ordinary commands (even with `--force`). Publish an explicit higher-revision empty manifest to withdraw an entire week; dropping a week from the index is not a cancellation command. Grocery receipts (#18), Notion/ChatGPT planning (#19) and scheduled printing (#20) come later. See the [GitHub print inbox contract and upgrade guide](docs/github-print-inbox.md).
 
 ## Data
 
