@@ -86,6 +86,8 @@ class ReconciliationTests(unittest.TestCase):
                     print_recipe_job(self.conn, id_, force=force)
         with self.assertRaisesRegex(ValueError, "requeued"):
             requeue_recipe_job(self.conn, "wed-dinner-v1")
+        with self.assertRaisesRegex(ValueError, "withdrawn"):
+            submit_recipe_job(self.conn, dinner)
         self.assertEqual(printer.call_count, 1)
         self.assertEqual(import_snapshot(self.conn, snapshot(2, [replacement])), 0)
 
