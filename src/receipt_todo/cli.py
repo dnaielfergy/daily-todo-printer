@@ -127,6 +127,8 @@ def main() -> None:
                 print(f'{row["job_id"]} [{state}] {payload["date"]} {payload["meal"]}: {payload["recipe"]["title"]}')
         elif args.recipe_command == "preview":
             row = get_recipe_job(conn, args.job_id)
+            if not row["inbox_active"]:
+                print("WITHDRAWN — historical preview only; this job cannot be printed.\n")
             print(render_recipe_job(json.loads(row["payload_json"])))
         elif args.recipe_command == "print":
             printed = print_recipe_job(conn, args.job_id, printer_name=args.printer_name, force=args.force)
