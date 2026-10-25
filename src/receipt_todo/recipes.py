@@ -180,7 +180,9 @@ def render_recipe_job(payload: dict) -> str:
         label = f"{index}. "
         lines.extend(_wrap(step.strip(), prefix=label, continuation=" " * len(label)))
         lines.append("")
-    lines.extend(["-" * WIDTH, f'Job: {payload["job_id"]}', "=" * WIDTH])
+    lines.append("-" * WIDTH)
+    lines.extend(_wrap(f'Job: {payload["job_id"]}'))
+    lines.append("=" * WIDTH)
     return "\n".join(lines)
 
 
