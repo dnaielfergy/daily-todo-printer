@@ -196,12 +196,20 @@ class ReconciliationTests(unittest.TestCase):
             "UPDATE recipe_print_jobs SET inbox_week = NULL WHERE job_id = ?",
             (old["job_id"],),
         )
+        self.conn.execute(
+            "UPDATE recipe_inbox_publications SET reconciled = 0 WHERE week_start = ?",
+            (WEEK,),
+        )
         self.conn.commit()
         self.assertEqual(import_snapshot(self.conn, snap), 0)
         self.assertEqual(get_recipe_job(self.conn, old["job_id"])["inbox_week"], WEEK)
         self.conn.execute(
             "UPDATE recipe_print_jobs SET inbox_week = NULL WHERE job_id = ?",
             (old["job_id"],),
+        )
+        self.conn.execute(
+            "UPDATE recipe_inbox_publications SET reconciled = 0 WHERE week_start = ?",
+            (WEEK,),
         )
         self.conn.commit()
         with self.assertRaisesRegex(InboxError, "Unattributed legacy"):
