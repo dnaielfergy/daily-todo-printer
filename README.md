@@ -260,6 +260,17 @@ receipt-todo recipe print 2026-10-26-lunch-miso-salmon-v1
 
 See [recipe job contract](docs/recipe-jobs.md) for validation, retry safety, and deliberate reprinting.
 
+### Private GitHub print inbox (Phase A)
+
+Approved recipe snapshots can be published to the **private** `household-print-inbox` repository. The Windows host reads them using a narrow **read-only** token and imports validated jobs into the existing SQLite database:
+
+```powershell
+receipt-todo recipe sync --config config.local.toml --preview
+receipt-todo recipe sync --config config.local.toml
+```
+
+This imports data only; it **does not automatically print or supersede older queued jobs**. Grocery lists, weekly plan reconciliation and scheduled printing come later. See the [GitHub print inbox setup and security guide](docs/github-print-inbox.md).
+
 ## Data
 
 The default database is `data/tasks.db` and is ignored by git. Backing up that single file backs up the core todo state.
