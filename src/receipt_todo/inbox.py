@@ -1,6 +1,6 @@
-"""Read-only, source-independent GitHub print inbox ingestion.
+"""Read-only, source-independent GitHub print inbox reconciliation.
 
-Only imports print snapshots; scheduled printing and cancellation are separate features.
+Applies one approved snapshot atomically; never prints on import.
 All files are fetched from the SAME immutable Git commit, not moving branch HEAD.
 """
 
@@ -262,11 +262,18 @@ def load_snapshot(client: GitHubInboxClient, *, sha: str | None = None) -> Inbox
 
 
 def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, preview: bool = False) -> int:
-    """Atomically apply only previously unseen jobs after validating whole publication."""
+    """Apply the latest *approved* per-week intent, preserving immutable history.
+
+    Omission from inbox.json is an archive/prune operation, NOT cancellation.
+    To withdraw a week, publish its manifest with a higher revision and jobs=[].
+    If a missing week still has queued jobs, reject the whole import: silently
+    hiding the manifest must never leave pending jobs mistaken for cancelled.
+    """
     if preview:
         return sum(len(week.jobs) for week in snapshot.weeks)
     ensure_jobs_table(conn)
-    with conn:
+    conn.execute("BEGIN IMMEDIATE")  # Serialize against other imports and spooler handoffs.
+    try:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS recipe_inbox_publications (
@@ -274,52 +281,138 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                 revision INTEGER NOT NULL,
                 fingerprint TEXT NOT NULL,
                 commit_sha TEXT NOT NULL,
-                applied_at TEXT NOT NULL
+                applied_at TEXT NOT NULL,
+                reconciled INTEGER NOT NULL DEFAULT 0
             )
             """
         )
-        # Preflight every week and job before any insert: conflict means full rollback.
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(recipe_inbox_publications)")}
+        if "reconciled" not in columns:
+            conn.execute(
+                "ALTER TABLE recipe_inbox_publications ADD COLUMN reconciled INTEGER NOT NULL DEFAULT 0"
+            )
+        published_weeks = {week.week_start for week in snapshot.weeks}
+        prior = conn.execute(
+            "SELECT week_start, revision, fingerprint, reconciled FROM recipe_inbox_publications"
+        ).fetchall()
+        for record in prior:
+            if record["week_start"] not in published_weeks:
+                pending = conn.execute(
+                    "SELECT 1 FROM recipe_print_jobs "
+                    "WHERE inbox_week = ? AND inbox_active = 1 AND status IN ('queued', 'printing', 'needs_review') "
+                    "LIMIT 1",
+                    (record["week_start"],),
+                ).fetchone()
+                if pending is not None:
+                    raise InboxError(
+                        f"Cannot omit {record['week_start']} while active jobs remain; "
+                        "publish an empty jobs list with a higher manifest revision first"
+                    )
+                if not record["reconciled"]:
+                    # The previous importer did not record which jobs it added.
+                    # Require an explicit refresh of that week's manifest first.
+                    raise InboxError(
+                        f"Cannot prune legacy publication {record['week_start']} before reconciliation"
+                    )
+
+        # Preflight every week and job before mutating anything. For legacy
+        # imports (before inbox_week existed), we may safely adopt identical
+        # jobs in the current manifest; *unlisted* old jobs require review.
         for week in snapshot.weeks:
             record = conn.execute(
-                "SELECT revision, fingerprint FROM recipe_inbox_publications WHERE week_start = ?",
+                "SELECT revision, fingerprint, reconciled FROM recipe_inbox_publications WHERE week_start = ?",
                 (week.week_start,),
             ).fetchone()
             if record is not None and (
                 week.revision < record["revision"]
                 or (week.revision == record["revision"] and week.fingerprint != record["fingerprint"])
             ):
-                raise InboxError(f"Rejected stale or changed-without-revision publication for {week.week_start}")
+                raise InboxError(
+                    f"Rejected stale or changed-without-revision publication for {week.week_start}"
+                )
+            current_ids = {job["job_id"] for job in week.jobs}
+            if record is not None and not record["reconciled"]:
+                week_start = date.fromisoformat(week.week_start)
+                for old in conn.execute(
+                    "SELECT job_id, payload_json FROM recipe_print_jobs WHERE inbox_week IS NULL"
+                ):
+                    old_date = date.fromisoformat(json.loads(old["payload_json"])["date"])
+                    if week_start <= old_date < week_start + timedelta(days=7) and old["job_id"] not in current_ids:
+                        raise InboxError(
+                            f"Unattributed legacy recipe job in {week.week_start}; "
+                            "review/migrate pre-#17 imported jobs before replacing the week"
+                        )
             for job in week.jobs:
                 old = conn.execute(
-                    "SELECT payload_json FROM recipe_print_jobs WHERE job_id = ?",
+                    "SELECT payload_json, inbox_week, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
                     (job["job_id"],),
                 ).fetchone()
-                if old is not None and old["payload_json"] != _serialized(job):
+                if old is None:
+                    continue
+                if old["payload_json"] != _serialized(job):
                     raise InboxError(f"Immutable job_id reused with different recipe: {job['job_id']}")
+                if old["inbox_week"] != week.week_start:
+                    if old["inbox_week"] is not None or record is None or record["reconciled"]:
+                        raise InboxError(f"job_id is not owned by this publication: {job['job_id']}")
+                if not old["inbox_active"]:
+                    raise InboxError(f"Superseded job_id cannot be reactivated: {job['job_id']}")
 
-        added = 0
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        added = 0
         for week in snapshot.weeks:
+            job_ids = {job["job_id"] for job in week.jobs}
+            # Mark every previously published job absent from the new intent
+            # inactive, including already printed/uncertain jobs. Never alter
+            # their immutable payload or execution status.
+            for old in conn.execute(
+                "SELECT job_id FROM recipe_print_jobs WHERE inbox_week = ? AND inbox_active = 1",
+                (week.week_start,),
+            ).fetchall():
+                if old["job_id"] not in job_ids:
+                    conn.execute(
+                        "UPDATE recipe_print_jobs SET inbox_active = 0, inbox_inactive_at = ? "
+                        "WHERE job_id = ? AND inbox_active = 1",
+                        (now, old["job_id"]),
+                    )
             for job in week.jobs:
-                cursor = conn.execute(
-                    """
-                    INSERT OR IGNORE INTO recipe_print_jobs (job_id, payload_json, created_at)
-                    VALUES (?, ?, ?)
-                    """,
-                    (job["job_id"], _serialized(job), now),
-                )
-                added += cursor.rowcount
+                payload_json = _serialized(job)
+                existing = conn.execute(
+                    "SELECT 1 FROM recipe_print_jobs WHERE job_id = ?", (job["job_id"],)
+                ).fetchone()
+                if existing is None:
+                    conn.execute(
+                        """
+                        INSERT INTO recipe_print_jobs
+                            (job_id, payload_json, created_at, inbox_week)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (job["job_id"], payload_json, now, week.week_start),
+                    )
+                    added += 1
+                else:
+                    # Upgrade a pre-#17 imported row with provenance while
+                    # retaining its previously recorded print state.
+                    conn.execute(
+                        "UPDATE recipe_print_jobs SET inbox_week = ? "
+                        "WHERE job_id = ? AND inbox_week IS NULL",
+                        (week.week_start, job["job_id"]),
+                    )
             conn.execute(
                 """
                 INSERT INTO recipe_inbox_publications (
-                    week_start, revision, fingerprint, commit_sha, applied_at
-                ) VALUES (?, ?, ?, ?, ?)
+                    week_start, revision, fingerprint, commit_sha, applied_at, reconciled
+                ) VALUES (?, ?, ?, ?, ?, 1)
                 ON CONFLICT(week_start) DO UPDATE SET
                     revision = excluded.revision,
                     fingerprint = excluded.fingerprint,
                     commit_sha = excluded.commit_sha,
-                    applied_at = excluded.applied_at
+                    applied_at = excluded.applied_at,
+                    reconciled = 1
                 """,
                 (week.week_start, week.revision, week.fingerprint, snapshot.commit_sha, now),
             )
-    return added
+        conn.commit()
+        return added
+    except BaseException:
+        conn.rollback()
+        raise

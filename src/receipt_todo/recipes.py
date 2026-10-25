@@ -95,11 +95,26 @@ def ensure_jobs_table(conn: sqlite3.Connection) -> None:
                 CHECK(status IN ('queued', 'printing', 'printed', 'needs_review')),
             created_at TEXT NOT NULL,
             printed_at TEXT,
-            print_count INTEGER NOT NULL DEFAULT 0
+            print_count INTEGER NOT NULL DEFAULT 0,
+            inbox_week TEXT,
+            inbox_active INTEGER NOT NULL DEFAULT 1 CHECK(inbox_active IN (0, 1)),
+            inbox_inactive_at TEXT
         )
         """
     )
-    conn.commit()
+    # Older installs have immutable jobs but no inbox provenance. The importer
+    # handles any ambiguous legacy publications conservatively.
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(recipe_print_jobs)")}
+    if "inbox_week" not in columns:
+        conn.execute("ALTER TABLE recipe_print_jobs ADD COLUMN inbox_week TEXT")
+    if "inbox_active" not in columns:
+        conn.execute(
+            "ALTER TABLE recipe_print_jobs ADD COLUMN inbox_active INTEGER NOT NULL DEFAULT 1"
+        )
+    if "inbox_inactive_at" not in columns:
+        conn.execute("ALTER TABLE recipe_print_jobs ADD COLUMN inbox_inactive_at TEXT")
+    if not conn.in_transaction:
+        conn.commit()
 
 
 def submit_recipe_job(conn: sqlite3.Connection, payload: dict) -> bool:
@@ -109,10 +124,12 @@ def submit_recipe_job(conn: sqlite3.Connection, payload: dict) -> bool:
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     with conn:
         existing = conn.execute(
-            "SELECT payload_json FROM recipe_print_jobs WHERE job_id = ?",
+            "SELECT payload_json, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
             (payload["job_id"],),
         ).fetchone()
         if existing is not None:
+            if not existing["inbox_active"]:
+                raise ValueError("job_id was withdrawn; publish a new approved job_id instead")
             if existing["payload_json"] != serialized:
                 raise ValueError("job_id already exists with different content; use a new job_id")
             return False
@@ -193,32 +210,65 @@ def print_recipe_job(
     printer_name: str | None = None,
     force: bool = False,
 ) -> bool:
-    """Claim before printing; an uncertain spooler failure requires explicit requeue."""
-    row = get_recipe_job(conn, job_id)
-    if row["status"] == "printed" and not force:
-        return False
-    allowed = ("queued", "printed") if force else ("queued",)
-    if row["status"] not in allowed:
-        raise ValueError(f"Job is {row['status']}; inspect printer and explicitly requeue if needed")
+    """Durably claim a job before a locked spooler handoff.
+
+    First commit status=printing, so process termination cannot silently put
+    an uncertain print back in the queue. Then recheck approved-plan state
+    under a SQLite write lock while handing bytes to the Windows spooler.
+    The publisher cannot retire the job between that recheck and handoff.
+    """
+    ensure_jobs_table(conn)
     with conn:
+        row = conn.execute(
+            "SELECT * FROM recipe_print_jobs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Recipe job not found: {job_id}")
+        if not row["inbox_active"]:
+            raise ValueError("Recipe job was withdrawn from the approved plan; cannot print or reprint")
+        if row["status"] == "printed" and not force:
+            return False
+        allowed = ("queued", "printed") if force else ("queued",)
+        if row["status"] not in allowed:
+            raise ValueError(
+                f"Job is {row['status']}; inspect printer and explicitly requeue if needed"
+            )
         claimed = conn.execute(
             f"UPDATE recipe_print_jobs SET status = 'printing' WHERE job_id = ? "
-            f"AND status IN ({','.join('?' for _ in allowed)})",
+            f"AND inbox_active = 1 AND status IN ({','.join('?' for _ in allowed)})",
             (job_id, *allowed),
         )
         if claimed.rowcount != 1:
-            raise ValueError("Recipe job already claimed by another printer process")
+            raise ValueError("Recipe job already claimed or withdrawn")
+    # A revision might commit between claim and this second transaction.
+    # Recheck active status before starting any physical print.
+    conn.execute("BEGIN IMMEDIATE")
     try:
-        payload = json.loads(row["payload_json"])
-        print_raw_windows(escpos_receipt(render_recipe_job(payload)), printer_name)
-    except Exception:
-        with conn:
+        current = conn.execute(
+            "SELECT status, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+        if current is None or current["status"] != "printing":
+            raise ValueError("Recipe job claim changed before spooler handoff")
+        if not current["inbox_active"]:
+            # No bytes were sent; preserve prior history instead of reporting an
+            # attempted print. The withdrawal has already become authoritative.
+            conn.execute(
+                "UPDATE recipe_print_jobs SET status = ? WHERE job_id = ? AND status = 'printing'",
+                (row["status"], job_id),
+            )
+            conn.commit()
+            raise ValueError("Recipe job was withdrawn before spooler handoff")
+        try:
+            payload = json.loads(row["payload_json"])
+            print_raw_windows(escpos_receipt(render_recipe_job(payload)), printer_name)
+        except BaseException:
             conn.execute(
                 "UPDATE recipe_print_jobs SET status = 'needs_review' WHERE job_id = ?",
                 (job_id,),
             )
-        raise
-    with conn:
+            conn.commit()
+            raise
         conn.execute(
             """
             UPDATE recipe_print_jobs
@@ -227,15 +277,26 @@ def print_recipe_job(
             """,
             (_now(), job_id),
         )
-    return True
+        conn.commit()
+        return True
+    except BaseException:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
 
 
 def requeue_recipe_job(conn: sqlite3.Connection, job_id: str) -> None:
     row = get_recipe_job(conn, job_id)
+    if not row["inbox_active"]:
+        raise ValueError("Withdrawn recipe jobs cannot be requeued")
     if row["status"] not in ("printing", "needs_review"):
         raise ValueError("Only interrupted/uncertain jobs can be requeued")
     with conn:
-        conn.execute(
-            "UPDATE recipe_print_jobs SET status = 'queued' WHERE job_id = ?",
+        updated = conn.execute(
+            "UPDATE recipe_print_jobs SET status = 'queued' "
+            "WHERE job_id = ? AND inbox_active = 1 "
+            "AND status IN ('printing', 'needs_review')",
             (job_id,),
         )
+        if updated.rowcount != 1:
+            raise ValueError("Job already changed or withdrawn")

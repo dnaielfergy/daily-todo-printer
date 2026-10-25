@@ -13,7 +13,7 @@ receipt-todo recipe preview 2026-10-26-lunch-miso-salmon-v1
 receipt-todo recipe print 2026-10-26-lunch-miso-salmon-v1
 ```
 
-To print a second copy deliberately: `receipt-todo recipe print JOB_ID --force`.
+To print a second copy of an **active** job deliberately: `receipt-todo recipe print JOB_ID --force`. The private GitHub publisher can withdraw an earlier approved job with a higher weekly revision; withdrawn jobs cannot be printed/reprinted even with `--force` (nor requeued). Manual submitted jobs remain independent of the weekly manifest.
 
 If the printer errors or the process is interrupted after claiming a job, the status is `needs_review` or `printing`. Inspect the printer **before** running `receipt-todo recipe requeue JOB_ID`, followed by `receipt-todo recipe print JOB_ID`. Receipt delivery cannot be exactly-once after ambiguous spooler failures.
 
@@ -32,4 +32,4 @@ Jobs are written into the existing SQLite file `data/tasks.db` in `recipe_print_
 
 ## Later integration boundary
 
-A future Telegram intake or authenticated API can call the same `submit_recipe_job` function. A future agent may fetch/modify recipes in Notion or Obsidian and send the already-normalized job; that source integration is not required on the printer host. Calendar meal planning, scheduling, shopping lists, and editor collaboration are separate follow-ups.
+An approved weekly publication in the private GitHub inbox may group recipe jobs by Monday-start week; those rows have `inbox_week`, `inbox_active`, and `inbox_inactive_at` metadata to preserve print history across substitutions and cancellations. The [weekly inbox contract](github-print-inbox.md) defines revisions and safe removals. A future ChatGPT agent will fetch/modify recipes in the existing Notion household library; that integration is not required on the printer host. Grocery receipts and scheduled printing are separate follow-ups.
