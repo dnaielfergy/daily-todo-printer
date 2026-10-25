@@ -203,8 +203,10 @@ class GitHubInboxClient:
         return _parse_json(content, path)
 
 
-def load_snapshot(client: GitHubInboxClient) -> InboxSnapshot:
-    sha = client.commit_sha()
+def load_snapshot(client: GitHubInboxClient, *, sha: str | None = None) -> InboxSnapshot:
+    sha = sha or client.commit_sha()
+    if SHA_PATTERN.fullmatch(sha) is None:
+        raise InboxError("Invalid pinned commit SHA")
     index = client.read_file(sha, "inbox.json")
     _versioned(index, "inbox.json")
     paths = index.get("weeks")
