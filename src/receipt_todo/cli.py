@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .config import load_daily_settings, load_telegram_settings
+from .config import load_daily_settings, load_recipe_inbox_settings, load_telegram_settings
 from .db import (
     DEFAULT_DB,
     add_task,
@@ -18,6 +18,7 @@ from .planner import get_or_create_daily_plan, print_daily_plan, render_plan
 from .printer import print_raw_windows
 from .receipt import escpos_receipt, render_daily_text
 from .telegram import run_listener
+from .inbox import GitHubInboxClient, import_snapshot, load_snapshot
 from .recipes import (
     get_recipe_job, list_recipe_jobs, load_recipe_job, print_recipe_job,
     requeue_recipe_job, render_recipe_job, submit_recipe_job,
@@ -65,6 +66,9 @@ def build_parser() -> argparse.ArgumentParser:
     submit = recipes_sub.add_parser("submit")
     submit.add_argument("file", type=Path)
     recipes_sub.add_parser("list")
+    sync = recipes_sub.add_parser("sync", help="Pull approved snapshots from the private GitHub inbox")
+    sync.add_argument("--config", type=Path, default=Path("config.local.toml"))
+    sync.add_argument("--preview", action="store_true", help="Validate remote publication without local writes")
     preview = recipes_sub.add_parser("preview")
     preview.add_argument("job_id")
     recipe_print = recipes_sub.add_parser("print")
@@ -88,6 +92,17 @@ def main() -> None:
             payload = load_recipe_job(args.file)
             created = submit_recipe_job(conn, payload)
             print(("Queued " if created else "Already queued ") + payload["job_id"])
+        elif args.recipe_command == "sync":
+            settings = load_recipe_inbox_settings(args.config)
+            client = GitHubInboxClient(
+                repo=settings.repo,
+                ref=settings.ref,
+                token=settings.token,
+            )
+            snapshot = load_snapshot(client)
+            count = import_snapshot(conn, snapshot, preview=args.preview)
+            mode = "Validated" if args.preview else "Imported"
+            print(f"{mode} {count} recipe job(s) from {len(snapshot.weeks)} week(s) at {snapshot.commit_sha[:12]}")
         elif args.recipe_command == "list":
             for row in list_recipe_jobs(conn):
                 payload = json.loads(row["payload_json"])
