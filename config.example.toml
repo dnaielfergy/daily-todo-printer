@@ -17,3 +17,10 @@ print_on_create = true
 max_items = 10
 # Optional. If omitted, daily printing reuses telegram.printer_name.
 # printer_name = "YOUR EXACT WINDOWS PRINTER NAME"
+
+# Private GitHub inbox for approved print snapshots. The host needs Contents read only.
+# Keep the token in ignored config.local.toml or the SYSTEM process environment.
+[recipe_inbox]
+repo = "dnaielfergy/household-print-inbox"
+ref = "main"
+# token = "READ_ONLY_GITHUB_TOKEN"
