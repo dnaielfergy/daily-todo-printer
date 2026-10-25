@@ -65,10 +65,11 @@ Publisher process: prepare jobs and manifest on a branch; review changes, then m
    ```powershell
    .\.venv\Scripts\receipt-todo.exe recipe sync --config config.local.toml --preview
    .\.venv\Scripts\receipt-todo.exe recipe sync --config config.local.toml
+   .\.venv\Scripts\receipt-todo.exe recipe sync --config config.local.toml --refresh
    .\.venv\Scripts\receipt-todo.exe recipe list
    ```
 
-   The sample private inbox's active `inbox.json` initially has `weeks: []`: it intentionally imports **zero** jobs until you approve and publish a week. Example files live in `examples/` and are not active. A preview fetches and validates remote data without adding print jobs.
+   The sample private inbox's active `inbox.json` initially has `weeks: []`: it intentionally imports **zero** jobs until you approve and publish a week. Example files live in `examples/` and are not active. A preview fetches and validates remote data without adding print jobs. Subsequent scheduled polls fetch only the branch SHA if it has not changed; use `--refresh` to force re-validation of the same publication after repairing local state.
 5. After verifying the manual sync, run PowerShell **as Administrator**:
    ```powershell
    .\scripts\install-recipe-sync-task.ps1 -EveryMinutes 5
