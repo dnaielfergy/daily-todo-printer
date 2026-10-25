@@ -164,6 +164,44 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(self.state(old["job_id"]), ("printed", 0, 1))
         self.assertEqual(self.state(replacement["job_id"]), ("queued", 1, 0))
 
+    @patch("receipt_todo.recipes.print_raw_windows")
+    def test_interrupted_handoff_needs_review_not_automatic_retry(self, printer):
+        old = job("wed-dinner-v1")
+        import_snapshot(self.conn, snapshot(1, [old]))
+        printer.side_effect = KeyboardInterrupt()
+        with self.assertRaises(KeyboardInterrupt):
+            print_recipe_job(self.conn, old["job_id"])
+        self.assertEqual(self.state(old["job_id"]), ("needs_review", 1, 0))
+        with self.assertRaisesRegex(ValueError, "needs_review"):
+            print_recipe_job(self.conn, old["job_id"])
+        # A different process can see the committed failure/uncertainty state.
+        second = connect(self.path)
+        try:
+            self.assertEqual(get_recipe_job(second, old["job_id"])["status"], "needs_review")
+        finally:
+            second.close()
+
+    def test_database_failure_after_retirement_rolls_back_entire_publication(self):
+        old = job("wed-dinner-v1")
+        import_snapshot(self.conn, snapshot(1, [old]))
+        self.conn.execute(
+            """
+            CREATE TRIGGER fail_new_job BEFORE INSERT ON recipe_print_jobs
+            WHEN NEW.job_id = 'wed-dinner-v2'
+            BEGIN SELECT RAISE(ABORT, 'injected failure'); END
+            """
+        )
+        self.conn.commit()
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "injected failure"):
+            import_snapshot(self.conn, snapshot(2, [job("wed-dinner-v2")]))
+        self.assertEqual(self.state(old["job_id"]), ("queued", 1, 0))
+        self.assertEqual(self.conn.execute(
+            "SELECT revision FROM recipe_inbox_publications WHERE week_start=?", (WEEK,)
+        ).fetchone()[0], 1)
+        self.assertIsNone(self.conn.execute(
+            "SELECT 1 FROM recipe_print_jobs WHERE job_id='wed-dinner-v2'"
+        ).fetchone())
+
     def test_legacy_schema_migration_preserves_existing_manual_history(self):
         old = job("legacy-manual")
         self.conn.execute(
