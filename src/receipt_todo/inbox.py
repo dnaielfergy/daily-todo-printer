@@ -281,13 +281,19 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                 revision INTEGER NOT NULL,
                 fingerprint TEXT NOT NULL,
                 commit_sha TEXT NOT NULL,
-                applied_at TEXT NOT NULL
+                applied_at TEXT NOT NULL,
+                reconciled INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(recipe_inbox_publications)")}
+        if "reconciled" not in columns:
+            conn.execute(
+                "ALTER TABLE recipe_inbox_publications ADD COLUMN reconciled INTEGER NOT NULL DEFAULT 0"
+            )
         published_weeks = {week.week_start for week in snapshot.weeks}
         prior = conn.execute(
-            "SELECT week_start, revision, fingerprint FROM recipe_inbox_publications"
+            "SELECT week_start, revision, fingerprint, reconciled FROM recipe_inbox_publications"
         ).fetchall()
         for record in prior:
             if record["week_start"] not in published_weeks:
@@ -302,13 +308,19 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                         f"Cannot omit {record['week_start']} while active jobs remain; "
                         "publish an empty jobs list with a higher manifest revision first"
                     )
+                if not record["reconciled"]:
+                    # The previous importer did not record which jobs it added.
+                    # Require an explicit refresh of that week's manifest first.
+                    raise InboxError(
+                        f"Cannot prune legacy publication {record['week_start']} before reconciliation"
+                    )
 
         # Preflight every week and job before mutating anything. For legacy
         # imports (before inbox_week existed), we may safely adopt identical
         # jobs in the current manifest; *unlisted* old jobs require review.
         for week in snapshot.weeks:
             record = conn.execute(
-                "SELECT revision, fingerprint FROM recipe_inbox_publications WHERE week_start = ?",
+                "SELECT revision, fingerprint, reconciled FROM recipe_inbox_publications WHERE week_start = ?",
                 (week.week_start,),
             ).fetchone()
             if record is not None and (
@@ -319,7 +331,7 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                     f"Rejected stale or changed-without-revision publication for {week.week_start}"
                 )
             current_ids = {job["job_id"] for job in week.jobs}
-            if record is not None:
+            if record is not None and not record["reconciled"]:
                 week_start = date.fromisoformat(week.week_start)
                 for old in conn.execute(
                     "SELECT job_id, payload_json FROM recipe_print_jobs WHERE inbox_week IS NULL"
@@ -339,8 +351,9 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                     continue
                 if old["payload_json"] != _serialized(job):
                     raise InboxError(f"Immutable job_id reused with different recipe: {job['job_id']}")
-                if old["inbox_week"] not in (None, week.week_start):
-                    raise InboxError(f"job_id already belongs to another published week: {job['job_id']}")
+                if old["inbox_week"] != week.week_start:
+                    if old["inbox_week"] is not None or record is None or record["reconciled"]:
+                        raise InboxError(f"job_id is not owned by this publication: {job['job_id']}")
                 if not old["inbox_active"]:
                     raise InboxError(f"Superseded job_id cannot be reactivated: {job['job_id']}")
 
@@ -387,13 +400,14 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
             conn.execute(
                 """
                 INSERT INTO recipe_inbox_publications (
-                    week_start, revision, fingerprint, commit_sha, applied_at
-                ) VALUES (?, ?, ?, ?, ?)
+                    week_start, revision, fingerprint, commit_sha, applied_at, reconciled
+                ) VALUES (?, ?, ?, ?, ?, 1)
                 ON CONFLICT(week_start) DO UPDATE SET
                     revision = excluded.revision,
                     fingerprint = excluded.fingerprint,
                     commit_sha = excluded.commit_sha,
-                    applied_at = excluded.applied_at
+                    applied_at = excluded.applied_at,
+                    reconciled = 1
                 """,
                 (week.week_start, week.revision, week.fingerprint, snapshot.commit_sha, now),
             )
