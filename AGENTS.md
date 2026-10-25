@@ -15,3 +15,12 @@ SQLite is the source of truth for task state. Messaging systems and AI models ar
 - Keep task IDs stable and printable so explicit commands such as `done 42` always work.
 - Build milestones sequentially: local task engine -> physical printer -> messaging -> daily AI prioritization.
 - Do not add projects, tags, energy levels, estimation systems, or other task taxonomy until real usage justifies them.
+
+## Recipe print pipeline
+- Working source: editable Notion/Obsidian recipes and plans, chosen later.
+- Published source: private GitHub `household-print-inbox` manifest and immutable print snapshots.
+- Execution source: local SQLite print queue and history (never committed to GitHub).
+- One-way only: working -> published -> executed. Explicit approval before publishing.
+- The printer host receives only data, not commands or executable scripts from the inbox.
+- GitHub inbox token must be read-only, narrowly scoped and kept outside the repository.
+- Phase A imports only; do not automatically print until stale-job supersession is implemented.
