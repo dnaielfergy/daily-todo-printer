@@ -1,14 +1,17 @@
 """Offline and adversarial tests for the private GitHub print inbox."""
 import base64
+import io
 import json
 import sqlite3
 import tempfile
+from contextlib import redirect_stdout
 import urllib.error
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from receipt_todo.db import add_task, connect, list_open_tasks
+from receipt_todo.cli import main
 from receipt_todo.inbox import (
     GitHubInboxClient, InboxError, _NoRedirect, _parse_json, import_snapshot, load_snapshot,
 )
@@ -83,6 +86,28 @@ class InboxTests(unittest.TestCase):
         self.assertEqual((row["status"], row["print_count"]), ("queued", 0))
         self.assertEqual([t.id for t in list_open_tasks(self.conn)], [task.id])
         self.assertEqual(self.conn.execute("SELECT count(*) FROM recipe_inbox_publications").fetchone()[0], 1)
+
+    def test_cli_skip_unchanged_commit_and_support_refresh(self):
+        client = FakeClient(published())
+        config = Path(self.tmp.name) / "test-config.toml"
+        config.write_text(
+            '[recipe_inbox]\\nrepo = "dnaielfergy/household-print-inbox"\\nref = "main"\\ntoken = "fake-token"\\n'
+            .replace('\\n', '\n'),
+            encoding="utf-8",
+        )
+        argv = ["receipt-todo", "recipe", "sync", "--config", str(config)]
+        with patch("receipt_todo.cli.connect", return_value=self.conn), patch(
+            "receipt_todo.cli.GitHubInboxClient", return_value=client
+        ), patch("sys.argv", argv), redirect_stdout(io.StringIO()) as output:
+            main()
+            first_requests = len(client.requests)
+            main()
+            self.assertEqual(len(client.requests), first_requests)
+            self.assertIn("already current", output.getvalue())
+            argv.append("--refresh")
+            main()
+            self.assertEqual(len(client.requests), first_requests * 2)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM recipe_print_jobs").fetchone()[0], 1)
 
     def test_changed_snapshot_requires_new_revision_and_new_job_id(self):
         first = load_snapshot(FakeClient(published()))
