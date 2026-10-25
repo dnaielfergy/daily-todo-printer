@@ -95,11 +95,26 @@ def ensure_jobs_table(conn: sqlite3.Connection) -> None:
                 CHECK(status IN ('queued', 'printing', 'printed', 'needs_review')),
             created_at TEXT NOT NULL,
             printed_at TEXT,
-            print_count INTEGER NOT NULL DEFAULT 0
+            print_count INTEGER NOT NULL DEFAULT 0,
+            inbox_week TEXT,
+            inbox_active INTEGER NOT NULL DEFAULT 1 CHECK(inbox_active IN (0, 1)),
+            inbox_inactive_at TEXT
         )
         """
     )
-    conn.commit()
+    # Older installs have immutable jobs but no inbox provenance. The importer
+    # handles any ambiguous legacy publications conservatively.
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(recipe_print_jobs)")}
+    if "inbox_week" not in columns:
+        conn.execute("ALTER TABLE recipe_print_jobs ADD COLUMN inbox_week TEXT")
+    if "inbox_active" not in columns:
+        conn.execute(
+            "ALTER TABLE recipe_print_jobs ADD COLUMN inbox_active INTEGER NOT NULL DEFAULT 1"
+        )
+    if "inbox_inactive_at" not in columns:
+        conn.execute("ALTER TABLE recipe_print_jobs ADD COLUMN inbox_inactive_at TEXT")
+    if not conn.in_transaction:
+        conn.commit()
 
 
 def submit_recipe_job(conn: sqlite3.Connection, payload: dict) -> bool:
@@ -193,32 +208,47 @@ def print_recipe_job(
     printer_name: str | None = None,
     force: bool = False,
 ) -> bool:
-    """Claim before printing; an uncertain spooler failure requires explicit requeue."""
-    row = get_recipe_job(conn, job_id)
-    if row["status"] == "printed" and not force:
-        return False
-    allowed = ("queued", "printed") if force else ("queued",)
-    if row["status"] not in allowed:
-        raise ValueError(f"Job is {row['status']}; inspect printer and explicitly requeue if needed")
-    with conn:
+    """Hold one SQLite write lock through the spooler handoff.
+
+    A new approved publication cannot retire a job between the eligibility
+    check and the spooler call. If the handoff fails, retain needs_review rather
+    than automatically retrying an ambiguous physical print.
+    """
+    ensure_jobs_table(conn)
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute(
+            "SELECT * FROM recipe_print_jobs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Recipe job not found: {job_id}")
+        if not row["inbox_active"]:
+            raise ValueError("Recipe job was withdrawn from the approved plan; cannot print or reprint")
+        if row["status"] == "printed" and not force:
+            conn.commit()
+            return False
+        allowed = ("queued", "printed") if force else ("queued",)
+        if row["status"] not in allowed:
+            raise ValueError(
+                f"Job is {row['status']}; inspect printer and explicitly requeue if needed"
+            )
         claimed = conn.execute(
             f"UPDATE recipe_print_jobs SET status = 'printing' WHERE job_id = ? "
-            f"AND status IN ({','.join('?' for _ in allowed)})",
+            f"AND inbox_active = 1 AND status IN ({','.join('?' for _ in allowed)})",
             (job_id, *allowed),
         )
         if claimed.rowcount != 1:
-            raise ValueError("Recipe job already claimed by another printer process")
-    try:
-        payload = json.loads(row["payload_json"])
-        print_raw_windows(escpos_receipt(render_recipe_job(payload)), printer_name)
-    except Exception:
-        with conn:
+            raise ValueError("Recipe job already claimed or withdrawn")
+        try:
+            payload = json.loads(row["payload_json"])
+            print_raw_windows(escpos_receipt(render_recipe_job(payload)), printer_name)
+        except Exception:
             conn.execute(
                 "UPDATE recipe_print_jobs SET status = 'needs_review' WHERE job_id = ?",
                 (job_id,),
             )
-        raise
-    with conn:
+            conn.commit()
+            raise
         conn.execute(
             """
             UPDATE recipe_print_jobs
@@ -227,15 +257,25 @@ def print_recipe_job(
             """,
             (_now(), job_id),
         )
-    return True
-
+        conn.commit()
+        return True
+    except BaseException:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
 
 def requeue_recipe_job(conn: sqlite3.Connection, job_id: str) -> None:
     row = get_recipe_job(conn, job_id)
+    if not row["inbox_active"]:
+        raise ValueError("Withdrawn recipe jobs cannot be requeued")
     if row["status"] not in ("printing", "needs_review"):
         raise ValueError("Only interrupted/uncertain jobs can be requeued")
     with conn:
-        conn.execute(
-            "UPDATE recipe_print_jobs SET status = 'queued' WHERE job_id = ?",
+        updated = conn.execute(
+            "UPDATE recipe_print_jobs SET status = 'queued' "
+            "WHERE job_id = ? AND inbox_active = 1 "
+            "AND status IN ('printing', 'needs_review')",
             (job_id,),
         )
+        if updated.rowcount != 1:
+            raise ValueError("Job already changed or withdrawn")
