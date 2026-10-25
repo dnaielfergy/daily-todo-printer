@@ -208,15 +208,15 @@ def print_recipe_job(
     printer_name: str | None = None,
     force: bool = False,
 ) -> bool:
-    """Hold one SQLite write lock through the spooler handoff.
+    """Durably claim a job before a locked spooler handoff.
 
-    A new approved publication cannot retire a job between the eligibility
-    check and the spooler call. If the handoff fails, retain needs_review rather
-    than automatically retrying an ambiguous physical print.
+    First commit status=printing, so process termination cannot silently put
+    an uncertain print back in the queue. Then recheck approved-plan state
+    under a SQLite write lock while handing bytes to the Windows spooler.
+    The publisher cannot retire the job between that recheck and handoff.
     """
     ensure_jobs_table(conn)
-    conn.execute("BEGIN IMMEDIATE")
-    try:
+    with conn:
         row = conn.execute(
             "SELECT * FROM recipe_print_jobs WHERE job_id = ?", (job_id,)
         ).fetchone()
@@ -225,7 +225,6 @@ def print_recipe_job(
         if not row["inbox_active"]:
             raise ValueError("Recipe job was withdrawn from the approved plan; cannot print or reprint")
         if row["status"] == "printed" and not force:
-            conn.commit()
             return False
         allowed = ("queued", "printed") if force else ("queued",)
         if row["status"] not in allowed:
@@ -239,10 +238,29 @@ def print_recipe_job(
         )
         if claimed.rowcount != 1:
             raise ValueError("Recipe job already claimed or withdrawn")
+    # A revision might commit between claim and this second transaction.
+    # Recheck active status before starting any physical print.
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        current = conn.execute(
+            "SELECT status, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+        if current is None or current["status"] != "printing":
+            raise ValueError("Recipe job claim changed before spooler handoff")
+        if not current["inbox_active"]:
+            # No bytes were sent; preserve prior history instead of reporting an
+            # attempted print. The withdrawal has already become authoritative.
+            conn.execute(
+                "UPDATE recipe_print_jobs SET status = ? WHERE job_id = ? AND status = 'printing'",
+                (row["status"], job_id),
+            )
+            conn.commit()
+            raise ValueError("Recipe job was withdrawn before spooler handoff")
         try:
             payload = json.loads(row["payload_json"])
             print_raw_windows(escpos_receipt(render_recipe_job(payload)), printer_name)
-        except Exception:
+        except BaseException:
             conn.execute(
                 "UPDATE recipe_print_jobs SET status = 'needs_review' WHERE job_id = ?",
                 (job_id,),
@@ -263,6 +281,7 @@ def print_recipe_job(
         if conn.in_transaction:
             conn.rollback()
         raise
+
 
 def requeue_recipe_job(conn: sqlite3.Connection, job_id: str) -> None:
     row = get_recipe_job(conn, job_id)
