@@ -30,3 +30,16 @@ jobs:
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script), [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) { throw "PowerShell syntax error in $script" }
           }
+
+      - name: Validate Windows ScheduledTasks settings properties
+        shell: powershell
+        run: |
+          $source = Get-Content "scripts/install-recipe-sync-task.ps1" -Raw
+          $properties = [regex]::Matches($source, '\$settings\.(\w+)') |
+            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+          $settings = New-ScheduledTaskSettingsSet
+          foreach ($property in $properties) {
+            if ($settings.PSObject.Properties.Name -notcontains $property) {
+              throw "Unknown Task Scheduler settings property: $property"
+            }
+          }
