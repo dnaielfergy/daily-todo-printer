@@ -198,7 +198,7 @@ class InboxTests(unittest.TestCase):
         with self.assertRaises(InboxError):
             GitHubInboxClient(repo="example/print", ref="main", token="")
 
-    @patch("receipt_todo.inbox.urllib.request.urlopen")
+    @patch("receipt_todo.inbox._OPENER.open")
     def test_remote_api_pins_all_files_to_commit_and_uses_bearer_auth(self, urlopen):
         class Response:
             def __init__(self, value):
