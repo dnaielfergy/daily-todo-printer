@@ -247,6 +247,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-daily-
 
 The deterministic rank is persisted separately from task truth. Daily plan items also reserve nullable `ai_rank` and `final_rank` fields so a later local AI model can replace the ordering while deterministic ranking remains the fallback.
 
+## Recipe print jobs (source-independent)
+
+Recipe printing accepts a versioned JSON job prepared by any recipe source or agent; the local app does not own or edit a recipe library. Existing SQLite stores queued print snapshots and history. Notion/Obsidian integrations and meal scheduling can be added later without changing this contract.
+
+```powershell
+receipt-todo recipe submit docs/example-recipe-job.json
+receipt-todo recipe list
+receipt-todo recipe preview 2026-10-26-lunch-miso-salmon-v1
+receipt-todo recipe print 2026-10-26-lunch-miso-salmon-v1
+```
+
+See [recipe job contract](docs/recipe-jobs.md) for validation, retry safety, and deliberate reprinting.
+
 ## Data
 
 The default database is `data/tasks.db` and is ignored by git. Backing up that single file backs up the core todo state.
