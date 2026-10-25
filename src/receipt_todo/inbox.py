@@ -195,7 +195,7 @@ class GitHubInboxClient:
         if not isinstance(encoded_content, str):
             raise InboxError(f"Missing file content: {path}")
         try:
-            content = base64.b64decode(encoded_content, validate=False)
+            content = base64.b64decode(encoded_content.replace("\n", "").replace("\r", ""), validate=True)
         except (ValueError, binascii.Error) as exc:
             raise InboxError(f"Invalid base64 file: {path}") from exc
         if len(content) != size:
