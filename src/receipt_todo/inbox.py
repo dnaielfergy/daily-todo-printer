@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
 from .recipes import ensure_jobs_table, validate_recipe_job
+from .groceries import validate_grocery_job
 
 REPO_PATTERN = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", re.ASCII)
 BRANCH_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,99}", re.ASCII)
@@ -26,6 +27,10 @@ SHA_PATTERN = re.compile(r"[a-f0-9]{40}", re.ASCII)
 MANIFEST_PATTERN = re.compile(r"weeks/(\d{4}-\d{2}-\d{2})/manifest\.json", re.ASCII)
 JOB_PATH_PATTERN = re.compile(
     r"weeks/(\d{4}-\d{2}-\d{2})/jobs/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.json",
+    re.ASCII,
+)
+GROCERY_PATH_PATTERN = re.compile(
+    r"weeks/(\\d{4}-\\d{2}-\\d{2})/groceries/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\\.json",
     re.ASCII,
 )
 MAX_FILE_SIZE = 131_072
@@ -105,6 +110,15 @@ def _job_path(value: object, week: str) -> str:
     return value
 
 
+def _grocery_path(value: object, week: str) -> str:
+    if not isinstance(value, str):
+        raise InboxError("Grocery path must be text")
+    match = GROCERY_PATH_PATTERN.fullmatch(value)
+    if match is None or match.group(1) != week or ".." in value:
+        raise InboxError("Unsafe grocery path or grocery outside its week")
+    return value
+
+
 def _serialized(obj: dict) -> str:
     return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -115,6 +129,15 @@ class WeekPublication:
     revision: int
     fingerprint: str
     jobs: tuple[dict, ...]
+    grocery: dict | None = None
+
+
+def _week_jobs(week: WeekPublication) -> list[tuple[str, dict]]:
+    """One shared immutable ID space and reconciliation for all print types."""
+    result = [("recipe", job) for job in week.jobs]
+    if week.grocery is not None:
+        result.append(("grocery", week.grocery))
+    return result
 
 
 @dataclass(frozen=True)
@@ -182,6 +205,7 @@ class GitHubInboxClient:
             raise InboxError("Invalid commit SHA")
         if path != "inbox.json" and not (
             MANIFEST_PATTERN.fullmatch(path) or JOB_PATH_PATTERN.fullmatch(path)
+            or GROCERY_PATH_PATTERN.fullmatch(path)
         ):
             raise InboxError("Unsafe inbox file path")
         encoded = urllib.parse.quote(path, safe="/")
@@ -254,10 +278,33 @@ def load_snapshot(client: GitHubInboxClient, *, sha: str | None = None) -> Inbox
                 raise InboxError("Duplicate job_id across publications")
             seen_ids.add(job["job_id"])
             jobs.append(job)
+        grocery = None
+        if manifest.get("grocery") is not None:
+            grocery_path = _grocery_path(manifest["grocery"], week)
+            grocery = client.read_file(sha, grocery_path)
+            try:
+                validate_grocery_job(grocery)
+            except ValueError as exc:
+                raise InboxError(f"{grocery_path}: {exc}") from exc
+            if grocery["week_start"] != week:
+                raise InboxError(f"{grocery_path}: grocery week_start mismatch")
+            # Each new approved weekly revision must either publish a matching
+            # grocery snapshot or explicitly omit it, never keep an outdated list.
+            if grocery.get("plan_revision") != revision:
+                raise InboxError(f"{grocery_path}: plan_revision must match weekly revision")
+            if grocery["job_id"] in seen_ids:
+                raise InboxError("Duplicate job_id across publications and types")
+            seen_ids.add(grocery["job_id"])
+
+        fingerprint_input = {"manifest": manifest, "jobs": jobs}
+        if grocery is not None:
+            fingerprint_input["grocery"] = grocery
+        # Preserve legacy recipe-only fingerprints for weeks already imported
+        # by #17, so adding grocery support doesn't require republishing them.
         fingerprint = hashlib.sha256(
-            _serialized({"manifest": manifest, "jobs": jobs}).encode("utf-8")
+            _serialized(fingerprint_input).encode("utf-8")
         ).hexdigest()
-        weeks.append(WeekPublication(week, revision, fingerprint, tuple(jobs)))
+        weeks.append(WeekPublication(week, revision, fingerprint, tuple(jobs), grocery))
     return InboxSnapshot(sha, tuple(weeks))
 
 
@@ -270,7 +317,7 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
     hiding the manifest must never leave pending jobs mistaken for cancelled.
     """
     if preview:
-        return sum(len(week.jobs) for week in snapshot.weeks)
+        return sum(len(_week_jobs(week)) for week in snapshot.weeks)
     ensure_jobs_table(conn)
     conn.execute("BEGIN IMMEDIATE")  # Serialize against other imports and spooler handoffs.
     try:
@@ -330,11 +377,12 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                 raise InboxError(
                     f"Rejected stale or changed-without-revision publication for {week.week_start}"
                 )
-            current_ids = {job["job_id"] for job in week.jobs}
+            current_ids = {job["job_id"] for _, job in _week_jobs(week)}
             if record is not None and not record["reconciled"]:
                 week_start = date.fromisoformat(week.week_start)
                 for old in conn.execute(
-                    "SELECT job_id, payload_json FROM recipe_print_jobs WHERE inbox_week IS NULL"
+                    "SELECT job_id, payload_json FROM recipe_print_jobs "
+                    "WHERE inbox_week IS NULL AND job_kind = 'recipe'"
                 ):
                     old_date = date.fromisoformat(json.loads(old["payload_json"])["date"])
                     if week_start <= old_date < week_start + timedelta(days=7) and old["job_id"] not in current_ids:
@@ -342,15 +390,16 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                             f"Unattributed legacy recipe job in {week.week_start}; "
                             "review/migrate pre-#17 imported jobs before replacing the week"
                         )
-            for job in week.jobs:
+            for kind, job in _week_jobs(week):
                 old = conn.execute(
-                    "SELECT payload_json, inbox_week, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
+                    "SELECT payload_json, inbox_week, inbox_active, job_kind "
+                    "FROM recipe_print_jobs WHERE job_id = ?",
                     (job["job_id"],),
                 ).fetchone()
                 if old is None:
                     continue
-                if old["payload_json"] != _serialized(job):
-                    raise InboxError(f"Immutable job_id reused with different recipe: {job['job_id']}")
+                if old["job_kind"] != kind or old["payload_json"] != _serialized(job):
+                    raise InboxError(f"Immutable job_id reused with different content or type: {job['job_id']}")
                 if old["inbox_week"] != week.week_start:
                     if old["inbox_week"] is not None or record is None or record["reconciled"]:
                         raise InboxError(f"job_id is not owned by this publication: {job['job_id']}")
@@ -360,7 +409,7 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         added = 0
         for week in snapshot.weeks:
-            job_ids = {job["job_id"] for job in week.jobs}
+            job_ids = {job["job_id"] for _, job in _week_jobs(week)}
             # Mark every previously published job absent from the new intent
             # inactive, including already printed/uncertain jobs. Never alter
             # their immutable payload or execution status.
@@ -374,7 +423,7 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                         "WHERE job_id = ? AND inbox_active = 1",
                         (now, old["job_id"]),
                     )
-            for job in week.jobs:
+            for kind, job in _week_jobs(week):
                 payload_json = _serialized(job)
                 existing = conn.execute(
                     "SELECT 1 FROM recipe_print_jobs WHERE job_id = ?", (job["job_id"],)
@@ -383,10 +432,10 @@ def import_snapshot(conn: sqlite3.Connection, snapshot: InboxSnapshot, *, previe
                     conn.execute(
                         """
                         INSERT INTO recipe_print_jobs
-                            (job_id, payload_json, created_at, inbox_week)
-                        VALUES (?, ?, ?, ?)
+                            (job_id, payload_json, created_at, inbox_week, job_kind)
+                        VALUES (?, ?, ?, ?, ?)
                         """,
-                        (job["job_id"], payload_json, now, week.week_start),
+                        (job["job_id"], payload_json, now, week.week_start, kind),
                     )
                     added += 1
                 else:
