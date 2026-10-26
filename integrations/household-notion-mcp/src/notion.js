@@ -21,17 +21,19 @@ function richProperty(property) {
   return "";
 }
 
-export function recipeSummary(page) {
+export function recipeSummary(page, requireComplete = false) {
   const properties = page?.properties ?? {};
   const title = richProperty(properties.Name);
-  const servings = properties.Servings?.number;
-  if (!title || !Number.isFinite(servings) || servings <= 0) {
+  const rawServings = properties.Servings?.number;
+  const servings = Number.isFinite(rawServings) && rawServings > 0 ? rawServings : null;
+  if (!title || (requireComplete && servings === null)) {
     throw new Error("Recipe has no Name or valid base Servings");
   }
   return {
     id: page.id,
     name: title,
     servings,
+    needs_preparation: servings === null,
     source_url: richProperty(properties.Recipe) || null
   };
 }
@@ -187,7 +189,7 @@ export function createNotion(env, transport = fetch) {
       for (const block of blocks) {
         if (block.type === "table") rows[block.id] = await children(block.id);
       }
-      return { ...recipeSummary(page), ...parseRecipeBlocks(blocks, rows) };
+      return { ...recipeSummary(page, true), ...parseRecipeBlocks(blocks, rows) };
     },
     async listWeeklyMeals({ week_start, cursor = undefined } = {}) {
       const week = weekDates(week_start);
