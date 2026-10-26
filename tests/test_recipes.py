@@ -18,7 +18,7 @@ def sample_job():
         "date": "2026-10-26",
         "meal": "lunch",
         "source": {"type": "notion", "reference": "recipe-123"},
-        "recipe": {
+        "recipes": [{
             "title": "Miso salmon bowls",
             "servings": 2,
             "ingredients": [
@@ -26,7 +26,7 @@ def sample_job():
                 {"name": "white miso", "amount": "2 tbsp"},
             ],
             "steps": ["Mix miso with water.", "Cook salmon and serve over rice."],
-        },
+        }],
     }
 
 
@@ -47,7 +47,22 @@ class RecipeTests(unittest.TestCase):
         self.assertIn("2. Cook salmon", output)
         self.assertTrue(all(len(line) <= 42 for line in output.splitlines()))
         bad = sample_job()
-        bad["recipe"]["steps"] = []
+        bad["recipes"][0]["steps"] = []
+        with self.assertRaises(ValueError):
+            validate_recipe_job(bad)
+        multi = sample_job()
+        multi["recipes"].append({
+            "title": "Roasted potatoes", "servings": 2,
+            "ingredients": [{"name": "potatoes", "amount": "500 g"}],
+            "steps": ["Roast until crisp."]
+        })
+        receipt = render_recipe_job(multi)
+        self.assertIn("Miso salmon bowls", receipt)
+        self.assertIn("Roasted potatoes", receipt)
+        self.assertEqual(receipt.count("INGREDIENTS"), 2)
+        self.assertTrue(all(len(line) <= 42 for line in receipt.splitlines()))
+        bad = sample_job()
+        bad["recipes"] = []
         with self.assertRaises(ValueError):
             validate_recipe_job(bad)
         bad = sample_job()
@@ -60,7 +75,7 @@ class RecipeTests(unittest.TestCase):
         self.assertTrue(submit_recipe_job(self.conn, job))
         self.assertFalse(submit_recipe_job(self.conn, job))
         changed = sample_job()
-        changed["recipe"]["title"] = "Updated"
+        changed["recipes"][0]["title"] = "Updated"
         with self.assertRaises(ValueError):
             submit_recipe_job(self.conn, changed)
         self.assertEqual(len(list_recipe_jobs(self.conn)), 1)
