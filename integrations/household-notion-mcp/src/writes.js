@@ -1,6 +1,6 @@
 // Controlled working-state writes. Never writes GitHub, publishes a receipt, or calls the printer.
 // All page IDs are checked against the two explicitly configured household data sources.
-import { assertId, createNotion, parseRecipeBlocks } from "./notion.js";
+import { assertId, createNotion } from "./notion.js";
 
 const VERSION = "2025-09-03";
 const ingredientHeader = ["Ingredient", "Quantity", "Unit", "Notes"];
@@ -143,14 +143,27 @@ function mealProperties(meal, title) {
   };
 }
 
+// Classify pages without touching unrelated human-authored notes or links.
+// A missing body is a link-only recipe; an incomplete approved template is safe
+// to populate, but duplicate/out-of-order sections must be reviewed manually.
 function structure(blocks, tableRows) {
   let section = "";
+  let ingredientHeading = null;
+  let instructionHeading = null;
   let ingredientTable = null;
   const steps = [];
   for (const block of blocks) {
     if (["heading_1", "heading_2", "heading_3"].includes(block.type)) {
       section = (block[block.type]?.rich_text ?? []).map((p) =>
         p.plain_text ?? p.text?.content ?? "").join("").trim().toLowerCase();
+      if (section === "ingredients") {
+        if (ingredientHeading) throw new Error("Duplicate Ingredients headings; manual review required");
+        ingredientHeading = block;
+      }
+      if (section === "instructions") {
+        if (instructionHeading) throw new Error("Duplicate Instructions headings; manual review required");
+        instructionHeading = block;
+      }
     } else if (section === "ingredients" && block.type === "table") {
       if (ingredientTable) throw new Error("Multiple ingredient tables; manual review required");
       ingredientTable = block;
@@ -158,21 +171,30 @@ function structure(blocks, tableRows) {
       steps.push(block);
     }
   }
-  if (!ingredientTable || ingredientTable.table?.table_width !== 4 || !steps.length) {
-    throw new Error("Recipe is not in the approved template; manual review required");
+
+  if (!ingredientHeading && !instructionHeading) return { kind: "link-only" };
+  if (!ingredientHeading || !instructionHeading ||
+      blocks.indexOf(ingredientHeading) >= blocks.indexOf(instructionHeading)) {
+    throw new Error("Incomplete or out-of-order recipe headings; manual review required");
   }
-  const rows = tableRows[ingredientTable.id];
+  if (ingredientTable && ingredientTable.table?.table_width !== 4) {
+    throw new Error("Ingredients table must have four columns; manual review required");
+  }
+  const rows = ingredientTable ? tableRows[ingredientTable.id] : [];
   if (!Array.isArray(rows) || rows.some((r) => r.type !== "table_row" ||
       r.table_row?.cells?.length !== 4)) {
     throw new Error("Unsupported ingredient table; manual review required");
   }
-  const header = rows[0] &&
-    plain(rows[0].table_row.cells).slice(0, 3).join("|").toLowerCase() ===
-    "ingredient|quantity|unit";
-  const ingredientRows = header ? rows.slice(1) : rows;
-  // Refuse to rewrite an incomplete/ambiguous existing template.
-  parseRecipeBlocks(blocks, tableRows);
-  return { table: ingredientTable, rows: ingredientRows, steps };
+  const first = rows[0] ? plain(rows[0].table_row.cells) : null;
+  const header = first && first.map((v) => v.toLowerCase()).join("|") ===
+    "ingredient|quantity|unit|notes";
+  if (first?.[0]?.toLowerCase() === "ingredient" && !header) {
+    throw new Error("Unexpected ingredient header; manual review required");
+  }
+  return {
+    kind: "structured", ingredientHeading, instructionHeading,
+    table: ingredientTable, rows: header ? rows.slice(1) : rows, steps
+  };
 }
 
 export function createNotionWriter(env, transport = fetch) {
@@ -257,26 +279,43 @@ export function createNotionWriter(env, transport = fetch) {
       if (block.type === "table") tables[block.id] = await blockChildren(block.id);
     }
     const existing = structure(blocks, tables);
+    if (existing.kind === "link-only") {
+      // Notion's default database template is not applied by the API unless
+      // requested explicitly. Supplying our own children creates a complete
+      // page deterministically, while retaining any existing source notes.
+      await call("PATCH", "blocks/" + assertId(recipeId) + "/children", {
+        children: recipeBlocks(desired)
+      });
+      return;
+    }
+
     const nextRows = desired.ingredients.map((item) =>
       [item.ingredient, item.quantity, item.unit, item.notes]);
 
-    // Update in place to preserve page and relation identities, headings,
-    // other manual notes and the original table block.
-    for (let i = 0; i < Math.min(existing.rows.length, nextRows.length); i++) {
-      if (JSON.stringify(plain(existing.rows[i].table_row.cells)) !==
-          JSON.stringify(nextRows[i])) {
-        await call("PATCH", "blocks/" + assertId(existing.rows[i].id), {
-          table_row: { cells: nextRows[i].map(rich) }
+    // Reuse the existing native template/table and replace its blank rows,
+    // rather than appending a duplicate Ingredients/Instructions section.
+    if (!existing.table) {
+      await call("PATCH", "blocks/" + assertId(recipeId) + "/children", {
+        after: existing.ingredientHeading.id,
+        children: [recipeBlocks(desired)[1]]
+      });
+    } else {
+      for (let i = 0; i < Math.min(existing.rows.length, nextRows.length); i++) {
+        if (JSON.stringify(plain(existing.rows[i].table_row.cells)) !==
+            JSON.stringify(nextRows[i])) {
+          await call("PATCH", "blocks/" + assertId(existing.rows[i].id), {
+            table_row: { cells: nextRows[i].map(rich) }
+          });
+        }
+      }
+      if (nextRows.length > existing.rows.length) {
+        await call("PATCH", "blocks/" + assertId(existing.table.id) + "/children", {
+          children: nextRows.slice(existing.rows.length).map(rowBlock)
         });
       }
-    }
-    if (nextRows.length > existing.rows.length) {
-      await call("PATCH", "blocks/" + assertId(existing.table.id) + "/children", {
-        children: nextRows.slice(existing.rows.length).map(rowBlock)
-      });
-    }
-    for (const row of existing.rows.slice(nextRows.length)) {
-      await call("DELETE", "blocks/" + assertId(row.id));
+      for (const row of existing.rows.slice(nextRows.length)) {
+        await call("DELETE", "blocks/" + assertId(row.id));
+      }
     }
 
     for (let i = 0; i < Math.min(existing.steps.length, desired.instructions.length); i++) {
@@ -290,7 +329,7 @@ export function createNotionWriter(env, transport = fetch) {
     }
     if (desired.instructions.length > existing.steps.length) {
       await call("PATCH", "blocks/" + assertId(recipeId) + "/children", {
-        after: existing.steps.at(-1).id,
+        after: existing.steps.at(-1)?.id ?? existing.instructionHeading.id,
         children: desired.instructions.slice(existing.steps.length).map(numberBlock)
       });
     }
@@ -314,6 +353,8 @@ export function createNotionWriter(env, transport = fetch) {
         const page = await call("POST", "pages", {
           parent: { type: "data_source_id", data_source_id: recipes },
           properties: recipeProperties(recipe),
+          // Explicit children, not template: {type:"default"}; the latter is
+          // asynchronous and cannot be combined with children in Notion API.
           children: recipeBlocks(recipe)
         });
         return { action: "created", recipe_id: page.id, url: page.url };
