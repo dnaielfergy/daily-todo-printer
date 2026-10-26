@@ -24,12 +24,12 @@ def job(name, *, date="2026-10-28", meal="dinner", servings=2):
         "job_id": name,
         "date": date,
         "meal": meal,
-        "recipe": {
+        "recipes": [{
             "title": name,
             "servings": servings,
             "ingredients": [{"name": "rice", "amount": "1 cup"}],
             "steps": ["Cook rice."],
-        },
+        }],
     }
 
 
