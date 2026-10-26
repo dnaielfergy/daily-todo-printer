@@ -141,7 +141,7 @@ class InboxTests(unittest.TestCase):
         path2 = "weeks/2026-10-26/jobs/tuesday-dinner.json"
         files[MANIFEST]["jobs"].append(path2)
         files[path2] = recipe_job("tuesday-dinner", day="2026-10-27", meal="dinner")
-        files[path2]["recipe"]["steps"] = []
+        files[path2]["recipes"][0]["steps"] = []
         with self.assertRaises(InboxError):
             load_snapshot(FakeClient(files))
         self.assertIsNone(self.conn.execute(
