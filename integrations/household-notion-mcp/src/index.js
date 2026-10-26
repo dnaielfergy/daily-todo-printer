@@ -3,9 +3,10 @@ import { createMcpHandler } from "agents/mcp/server";
 import { z } from "zod";
 import { requireHouseholdAccess } from "./auth.js";
 import { createNotion } from "./notion.js";
+import { createNotionWriter } from "./writes.js";
 
 function createServer(env) {
-  const server = new McpServer({ name: "household-notion-readonly", version: "0.1.0" });
+  const server = new McpServer({ name: "household-notion", version: "0.2.0" });
   const notion = createNotion(env);
 
   function register(name, description, inputSchema, fn) {
@@ -52,6 +53,55 @@ function createServer(env) {
     },
     (args) => notion.listWeeklyMeals(args)
   );
+
+
+  // Working-state Notion writes are disabled by default, independently of
+  // Cloudflare Access authentication and Notion integration permissions.
+  if (env.ENABLE_NOTION_WRITES === "true") {
+    const writer = createNotionWriter(env);
+    const ingredient = z.object({
+      ingredient: z.string().min(1).max(160),
+      quantity: z.string().min(1).max(50),
+      unit: z.string().max(40).optional(),
+      notes: z.string().max(200).optional()
+    });
+    register(
+      "save_recipe",
+      "Create or revise one household Notion recipe with the approved four-column ingredient table and numbered steps. To revise, supply recipe_id and the last_edited_time from get_recipe; the full ingredient/instruction lists replace the prior managed content. This modifies working Notion only—NEVER publishes to GitHub or prints.",
+      {
+        recipe_id: z.string().uuid().optional(),
+        expected_last_edited_time: z.string().max(50).optional(),
+        name: z.string().min(1).max(160),
+        servings: z.number().positive().max(100),
+        source_url: z.string().max(1000).nullable().optional(),
+        ingredients: z.array(ingredient).min(1).max(50),
+        instructions: z.array(z.string().min(1).max(1000)).min(1).max(40)
+      },
+      (args) => writer.saveRecipe(args)
+    );
+    register(
+      "save_weekly_meal",
+      "Create or revise one dated household Weekly Meals entry, linking exactly one complete recipe. To revise, supply meal_id and last_edited_time from list_weekly_meals. Duplicate date/type slots are rejected. Writes working Notion only—not the approved private GitHub print inbox.",
+      {
+        meal_id: z.string().uuid().optional(),
+        expected_last_edited_time: z.string().max(50).optional(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        meal_type: z.enum(["Breakfast", "Lunch", "Dinner"]),
+        recipe_id: z.string().uuid(),
+        servings: z.number().positive().max(100).nullable().optional()
+      },
+      (args) => writer.saveWeeklyMeal(args)
+    );
+    register(
+      "remove_weekly_meal",
+      "Archive one authorized Weekly Meals assignment after checking its last_edited_time. Does not delete recipes, modify GitHub publication, or print anything.",
+      {
+        meal_id: z.string().uuid(),
+        expected_last_edited_time: z.string().min(1).max(50)
+      },
+      (args) => writer.removeWeeklyMeal(args)
+    );
+  }
 
   return server;
 }
