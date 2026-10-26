@@ -1,97 +1,76 @@
-# Household Notion MCP — #19 read-only first pass
+# Household Notion MCP — #19
 
-**Status: review-only implementation. Do not deploy before Cloudflare Access, Notion integration scope, and real ChatGPT connection are tested.**
+**Draft implementation; not deployed.** This Cloudflare Worker connects ChatGPT to the existing household Notion Recipes and Weekly Meals databases. It exposes **three read tools** and **three write tools disabled by default**.
 
-A small **stateless, read-only** Cloudflare Worker MCP server for the existing household Notion recipe and meal-plan data sources. It does not touch Windows, the Telegram bot, production SQLite, or the private GitHub print inbox.
+The editable Notion plan and the approved GitHub print snapshots are independent. Writing a meal assignment or recipe **does not publish, print, or cancel an approved grocery/meal receipt**. Publishing requires an explicit review and approval through the private GitHub inbox workflow, implemented separately in #19.
 
 ## Approved Notion schema
 
-Recipes data source properties:
+Recipes properties: Name (title), Servings (number, base recipe yield), Recipe (source URL), optional Meal Type / Diet / Best For (multi-select), Notes (rich text), and existing Last Made (not modified by the writer).
 
-- Name — title
-- Recipe — source URL (optional for a complete stored recipe)
-- Servings — number (original/base yield)
-- Existing Meal Type, Diet, Best For, Notes, Last Made remain unchanged.
+Recipe page content:
+1. Native **Ingredients** heading followed by **one native Notion simple table**, exactly four columns: Ingredient, Quantity, Unit, Notes.
+2. Native **Instructions** heading followed by numbered list items.
+3. Other page notes may remain outside the managed sections.
 
-A complete recipe's **page body** contains:
+Quantities are explicit text strings, such as "0.25", "2", or "to taste". Grocery calculations, incompatible-unit checks, and any ingredient normalization belong in ChatGPT, *not* in the Worker or printer.
 
-1. \`Ingredients\` heading and one **native Notion simple table** with four columns \`Ingredient | Quantity | Unit | Notes\`, then one row per ingredient.
-2. \`Instructions\` heading and **numbered list** blocks.
+Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast/Lunch/Dinner), Meal link (relation to exactly one Recipes page), optional Servings (number). The existing Recipe rollup is display-only. Breakfast is valid for planning but not printable with the current lunch/dinner snapshot contract.
 
-Ingredient rows represent precise source quantities, e.g. \`Coconut aminos | 0.25 | cup | Soy sauce replacement\`. The Worker extracts strings; it does **not** calculate units, scrape recipe sites, or aggregate groceries.
+## MCP tools
 
-Weekly Meals data source properties:
+| Tool | Purpose |
+| --- | --- |
+| list_recipes | Read recipe metadata, preparation status and edit timestamps |
+| get_recipe | Read and validate a recipe's simple ingredient table and numbered steps |
+| list_weekly_meals | Read dated weekly assignments, serving overrides, recipe IDs and edit timestamps |
+| save_recipe | **Writes enabled only:** create or revise complete recipe contents and selected metadata |
+| save_weekly_meal | **Writes enabled only:** create or revise a dated recipe assignment; duplicate slots rejected |
+| remove_weekly_meal | **Writes enabled only:** archive one authorized dated assignment |
 
-- Meal — title
-- Date — date, one actual calendar date per row
-- Meal Type — select: Breakfast, Lunch, Dinner
-- Meal link — relation to Recipes, exactly one recipe per assignment
-- Servings — number, optional meal-specific override (blank = base recipe yield).
-- The existing Recipe rollup is display-only and not used for writes.
+For a revision, supply the page ID and the **expected last_edited_time** returned by the read tool, plus the complete intended content. This refuses most stale overwrites and guards page identity. Recipe edits update native ingredient rows and numbered instructions in place and preserve manually authored notes elsewhere on the page.
 
-Breakfast can be planned, but #17/#18 print snapshots currently support only lunch/dinner.
+Notion block writes are **not transactional**. If an update fails halfway through, inspect the recipe and repair it before retrying. The writer verifies recipe edits with a complete read-back; an edit timestamp alone is not a database-level concurrency lock.
 
-## Tools
+Omitted optional source URL, tags, or Notes fields on recipe edits are preserved. Explicit empty tags clear a multi-select; explicit null URL clears the original link. Existing Last Made values are never changed by the writer.
 
-| MCP tool | Input | Output |
-| --- | --- | --- |
-| \`list_recipes\` | optional \`limit\`, \`cursor\` | Recipe titles, IDs, serving yields, source URLs, whether preparation is needed, pagination cursor |
-| \`get_recipe\` | \`recipe_id\` | One recipe from the allowlisted data source, validated ingredients and numbered steps |
-| \`list_weekly_meals\` | \`week_start\` (ISO Monday), optional \`cursor\` | Dated meal assignments, recipe IDs, serving overrides, printability indicator |
+## Security and deployment
 
-All tools are read-only. No generic Notion URL fetch, database enumeration, arbitrary search or edit operations. Every returned recipe page is verified to belong to the configured **recipe data source**, not merely be readable by the Notion token.
+- The dedicated household Notion integration token must be kept as a Cloudflare **secret**, not in GitHub or Windows. Grant connection access **only** to the two household data sources. When writes are enabled it needs read, insert, and update content capabilities; never connect the studio workspace.
+- Use a dedicated protected custom hostname with Cloudflare Zero Trust Access and MCP OAuth, restricted to your chosen account. The Worker also verifies the signed Cloudflare Access JWT (issuer, audience, RS256, expiry, one allowed email).
+- workers_dev is disabled. No route or public Worker deployment is created by this branch. The Worker denies unauthenticated requests and never fetches arbitrary Notion URLs or modifies other databases.
+- Write tools are registered **only** if the environment binding ENABLE_NOTION_WRITES is exactly "true". The default is read-only, even if the Notion integration token has write permission.
+- No MCP tool can publish to GitHub, command the local printer, or bypass the human approval gate.
 
-A link-only recipe remains listable with \`needs_preparation: true\` until its base serving yield and native block content are prepared. Reading an incomplete recipe fails closed rather than guessing ingredients.
+Required protected configuration (never commit actual values):
+- NOTION_TOKEN
+- NOTION_RECIPES_DATA_SOURCE_ID
+- NOTION_MEALS_DATA_SOURCE_ID
+- ACCESS_TEAM_DOMAIN (e.g. team.cloudflareaccess.com)
+- ACCESS_AUD (Cloudflare Access app audience)
+- ACCESS_ALLOWED_EMAIL (one authorized email)
+- ENABLE_NOTION_WRITES (omit/false until read + OAuth tests pass)
 
-## Deployment prerequisites (manual; no secrets in GitHub)
+## Build and test
 
-1. **Notion:** In the household Notion workspace, create a dedicated internal integration with read access. Grant its connection **only** to the Recipes and Weekly Meals databases and the test recipe page. Do not grant access to the studio workspace or broader household parent pages. Capture the actual **data source IDs** (not the database page URLs/view IDs). Keep the integration token out of GitHub and chat.
-2. **Cloudflare Zero Trust:** Configure a dedicated **self-hosted Access application** on a hostname you control, with MCP OAuth support, limited to your chosen identity/email. Deny other accounts. Set a custom Worker domain/route behind Access, and keep the \`workers.dev\` endpoint disabled.
-3. **Access + Worker config:** Define these Wrangler secrets or protected environment variables:
-   - \`NOTION_TOKEN\` — dedicated Notion integration token (never in git)
-   - \`NOTION_RECIPES_DATA_SOURCE_ID\` — actual Recipes data source ID
-   - \`NOTION_MEALS_DATA_SOURCE_ID\` — actual Weekly Meals data source ID
-   - \`ACCESS_TEAM_DOMAIN\` — Cloudflare Access team hostname, e.g. \`team.cloudflareaccess.com\`
-   - \`ACCESS_AUD\` — Access application audience/tag
-   - \`ACCESS_ALLOWED_EMAIL\` — one exact authorized email; configure the same restriction in Access.
-4. **Cloudflare Access JWT:** Access must authenticate the MCP client's OAuth token and insert a \`Cf-Access-Jwt-Assertion\` header. The Worker independently verifies its RS256 signature against the Access JWKS, issuer, audience, expiration, and exact email. The Worker fails closed (503/401/403) if misconfigured, missing, invalid, or from another identity. **Never route around Access**.
-5. **ChatGPT:** An authorized workspace admin/owner opens Plugins → Add custom MCP server, enters the protected HTTPS \`/mcp\` URL, completes OAuth, and verifies the tool list (3 read-only tools). If a different UI is shown, use the workspace's app/plugin creation flow. Do not publish to other members before reviewing permissions.
+From integrations/household-notion-mcp, run:
+- npm install
+- npm test
+- npm run check
 
-Current connected ChatGPT Notion tools return \`object_not_found\` for the private household workspace: live Notion integration access **has not** been verified yet. Connect and smoke-test **one real example recipe** before treating this as production-ready.
+The third command is a **Wrangler dry-run bundle check**, not a deployment. Tests contain only fictional recipes and mock Notion responses.
 
-## Development
+## Acceptance gates
 
-\`\`\`sh
-cd integrations/household-notion-mcp
-npm install
-npm test
-npm run check
-\`\`\`
+1. Create a dedicated household Notion integration and connect **only Recipes and Weekly Meals**; capture each **data source ID**, not its database/view URL. Validate exact live property types/names before deployment.
+2. Configure a Cloudflare Zero Trust Access-protected hostname and test OAuth from **the actual ChatGPT workspace**.
+3. With writes disabled, verify that the only three available MCP tools are read-only. Read back the approved egg-roll-bowl recipe containing coconut aminos and its four-column ingredient table, numbered steps, and servings.
+4. Enable ENABLE_NOTION_WRITES=true only when the connection and exact schema are verified. Use a **fictional recipe and meal** for first write tests, including recipe revision, serving override, duplicate-slot denial, and meal archive. Verify every result via read-back and confirm out-of-scope IDs are rejected.
+5. Test wrong-user, expired, or revoked Access tokens and turning the write switch back off. Use Notion page history to recover from any interrupted multi-block update.
+6. In a separate #19 phase, add the ChatGPT **explicit human approval → private GitHub snapshot publication** workflow. Do not enable automatic printing until #20.
 
-\`npm run check\` builds via Wrangler dry-run only; it does not deploy. The current CI uses synthetic example ingredients and stubbed Notion responses, not real household content.
+## Rollback
 
-When credentials and Access are configured:
+Set ENABLE_NOTION_WRITES=false, revoke or rotate Notion credentials, and/or disable the Cloudflare Access app. No production Windows, SQLite, or receipt schedule modifications are needed.
 
-\`\`\`sh
-npx wrangler secret put NOTION_TOKEN
-npx wrangler secret put NOTION_RECIPES_DATA_SOURCE_ID
-npx wrangler secret put NOTION_MEALS_DATA_SOURCE_ID
-npx wrangler secret put ACCESS_TEAM_DOMAIN
-npx wrangler secret put ACCESS_AUD
-npx wrangler secret put ACCESS_ALLOWED_EMAIL
-npx wrangler deploy
-\`\`\`
-
-The Wrangler configuration deliberately disables \`workers.dev\` and declares **no custom route or domain** yet. Attach the protected hostname/Access application explicitly and review it before attempting live deployment. Do **not** publicly expose the \`/mcp\` endpoint for debugging.
-
-## Release gates
-
-- [ ] ChatGPT custom MCP availability and OAuth handshake confirmed in the actual workspace.
-- [ ] Dedicated Notion integration read scope verified (only two household data sources).
-- [ ] Access OAuth login and signed assertion tested in front of the correct Worker hostname, including wrong-user denials.
-- [ ] Live \`list_recipes\` and \`get_recipe\` return the approved coconut-aminos example, not other workspace pages.
-- [ ] Live \`list_weekly_meals\` reads dated relation and optional serving override correctly.
-- [ ] Review PR, test revocation/expired token, verify malformed rows are rejected.
-- [ ] Add **write** operations and explicit approval/publish workflow as a separate #19 PR; do not enable grocery/meal auto-printing (#20).
-
-There is **no production deployment** associated with this first-pass implementation. The existing private GitHub publication contract and Windows print history remain unchanged.
+**No real Notion records, credentials, Cloudflare deployments, or production printer changes have been made by this PR.**
