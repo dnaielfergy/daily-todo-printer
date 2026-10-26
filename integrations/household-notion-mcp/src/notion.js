@@ -1,4 +1,4 @@
-// Read-only, fixed-scope Notion adapter. Never fetch arbitrary URLs or write to Notion.
+// Fixed-scope Notion read adapter. Never fetch arbitrary URLs or expose unrelated pages.
 const NOTION_VERSION = "2025-09-03";
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const MAX_BLOCKS = 300;
@@ -34,7 +34,8 @@ export function recipeSummary(page, requireComplete = false) {
     name: title,
     servings,
     needs_preparation: servings === null,
-    source_url: richProperty(properties.Recipe) || null
+    source_url: richProperty(properties.Recipe) || null,
+    ...(page.last_edited_time ? { last_edited_time: page.last_edited_time } : {})
   };
 }
 
@@ -100,7 +101,8 @@ export function weeklyMeal(page) {
     meal_type: mealType,
     recipe_id: relation[0].id,
     servings,
-    printable: mealType !== "Breakfast"
+    printable: mealType !== "Breakfast",
+    ...(page.last_edited_time ? { last_edited_time: page.last_edited_time } : {})
   };
 }
 
