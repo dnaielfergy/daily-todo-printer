@@ -18,7 +18,7 @@ SQLite is the source of truth for task state. Messaging systems and AI models ar
 
 ## Recipe print pipeline
 - Working source: existing household Notion recipe library and editable meal plans (integration later).
-- Published source: private GitHub `household-print-inbox` manifest and immutable print snapshots.
+- Published source: configured private GitHub inbox manifest and immutable print snapshots.
 - Execution source: local SQLite print queue and history (never committed to GitHub).
 - One-way only: working -> published -> executed. Explicit approval before publishing.
 - The printer host receives only data, not commands or executable scripts from the inbox.
