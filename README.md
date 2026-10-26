@@ -260,16 +260,29 @@ receipt-todo recipe print 2026-10-26-lunch-miso-salmon-v1
 
 See [recipe job contract](docs/recipe-jobs.md) for validation, retry safety, and deliberate reprinting.
 
-### Private GitHub print inbox (Phase A transport + B1 safe revisions)
+### Weekly grocery-list receipts (Phase B2)
 
-Approved recipe snapshots can be published to the **private** `household-print-inbox` repository. The Windows host reads them using a narrow **read-only** token and imports validated jobs into the existing SQLite database:
+The grocery renderer uses the **same print history, claim locking, and approved-week revision rules** as recipes. It prints 42-column categorized shopping lists with checkboxes and the **exact quantities approved upstream**; no local merging or serving arithmetic.
+
+```powershell
+receipt-todo grocery submit docs/example-grocery-job.json
+receipt-todo grocery list
+receipt-todo grocery preview 2026-10-26-groceries-example-v1
+receipt-todo grocery print 2026-10-26-groceries-example-v1
+```
+
+Use `grocery print JOB_ID --force` only for a deliberate extra copy of an **active** list. The printer never automatically prints when a grocery file arrives. See [grocery-list contract](docs/grocery-jobs.md).
+
+### Private GitHub print inbox (Phase A transport + B1/B2 revisions)
+
+Approved recipe and grocery snapshots can be published to the **private** `household-print-inbox` repository. The Windows host reads them using a narrow **read-only** token and imports validated jobs into the existing SQLite database:
 
 ```powershell
 receipt-todo recipe sync --config config.local.toml --preview
 receipt-todo recipe sync --config config.local.toml
 ```
 
-This imports data only and **never automatically prints**. An approved higher weekly revision now marks replaced/cancelled jobs withdrawn; they remain in SQLite history but cannot be printed or requeued through ordinary commands (even with `--force`). Publish an explicit higher-revision empty manifest to withdraw an entire week; dropping a week from the index is not a cancellation command. Grocery receipts (#18), Notion/ChatGPT planning (#19) and scheduled printing (#20) come later. See the [GitHub print inbox contract and upgrade guide](docs/github-print-inbox.md).
+This imports data only and **never automatically prints**. An approved higher weekly revision now marks replaced/cancelled jobs withdrawn; they remain in SQLite history but cannot be printed or requeued through ordinary commands (even with `--force`). Publish an explicit higher-revision empty manifest to withdraw an entire week; dropping a week from the index is not a cancellation command. The weekly manifest can now include a single grocery reference with a matching `plan_revision`; revised meal plans require a newly approved grocery job or explicit withdrawal of the old list. Notion/ChatGPT planning (#19) and scheduled printing (#20) come later. See the [GitHub print inbox contract and upgrade guide](docs/github-print-inbox.md).
 
 ## Data
 

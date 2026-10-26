@@ -23,6 +23,10 @@ from .recipes import (
     get_recipe_job, list_recipe_jobs, load_recipe_job, print_recipe_job,
     requeue_recipe_job, render_recipe_job, submit_recipe_job,
 )
+from .groceries import (
+    get_grocery_job, list_grocery_jobs, load_grocery_job, print_grocery_job,
+    requeue_grocery_job, render_grocery_job, submit_grocery_job,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -79,6 +83,20 @@ def build_parser() -> argparse.ArgumentParser:
     requeue = recipes_sub.add_parser("requeue")
     requeue.add_argument("job_id")
 
+    groceries = sub.add_parser("grocery", help="Manage grocery-list print jobs")
+    groceries_sub = groceries.add_subparsers(dest="grocery_command", required=True)
+    grocery_submit = groceries_sub.add_parser("submit")
+    grocery_submit.add_argument("file", type=Path)
+    groceries_sub.add_parser("list")
+    grocery_preview = groceries_sub.add_parser("preview")
+    grocery_preview.add_argument("job_id")
+    grocery_print = groceries_sub.add_parser("print")
+    grocery_print.add_argument("job_id")
+    grocery_print.add_argument("--printer-name")
+    grocery_print.add_argument("--force", action="store_true")
+    grocery_requeue = groceries_sub.add_parser("requeue")
+    grocery_requeue.add_argument("job_id")
+
     telegram = sub.add_parser("telegram", help="Run the Telegram listener")
     telegram.add_argument("--config", type=Path, default=Path("config.local.toml"))
     return parser
@@ -102,7 +120,7 @@ def main() -> None:
             )
             sha = client.commit_sha()
             # New key forces a one-time reconciliation on upgrade, even if GitHub HEAD is unchanged.
-            state_key = f"recipe_inbox:last_sha:reconcile_v2:{settings.repo}:{settings.ref}"
+            state_key = f"recipe_inbox:last_sha:reconcile_v3:{settings.repo}:{settings.ref}"
             last = conn.execute("SELECT value FROM app_state WHERE key = ?", (state_key,)).fetchone()
             if not args.preview and not args.refresh and last is not None and last["value"] == sha:
                 print(f"Recipe inbox already current at {sha[:12]}")
@@ -119,7 +137,7 @@ def main() -> None:
                         (state_key, sha),
                     )
             mode = "Validated" if args.preview else "Imported"
-            print(f"{mode} {count} recipe job(s) from {len(snapshot.weeks)} week(s) at {sha[:12]}")
+            print(f"{mode} {count} print job(s) from {len(snapshot.weeks)} week(s) at {sha[:12]}")
         elif args.recipe_command == "list":
             for row in list_recipe_jobs(conn):
                 payload = json.loads(row["payload_json"])
@@ -135,6 +153,30 @@ def main() -> None:
             print(("Printed " if printed else "Already printed ") + args.job_id)
         elif args.recipe_command == "requeue":
             requeue_recipe_job(conn, args.job_id)
+            print("Requeued " + args.job_id)
+        return
+
+    if args.command == "grocery":
+        if args.grocery_command == "submit":
+            payload = load_grocery_job(args.file)
+            created = submit_grocery_job(conn, payload)
+            print(("Queued " if created else "Already queued ") + payload["job_id"])
+        elif args.grocery_command == "list":
+            for row in list_grocery_jobs(conn):
+                payload = json.loads(row["payload_json"])
+                state = row["status"] + (", withdrawn" if not row["inbox_active"] else "")
+                label = payload.get("title", "Shopping list")
+                print(f'{row["job_id"]} [{state}] week {payload["week_start"]}: {label}')
+        elif args.grocery_command == "preview":
+            row = get_grocery_job(conn, args.job_id)
+            if not row["inbox_active"]:
+                print("WITHDRAWN — historical preview only; this job cannot be printed.\n")
+            print(render_grocery_job(json.loads(row["payload_json"])))
+        elif args.grocery_command == "print":
+            printed = print_grocery_job(conn, args.job_id, printer_name=args.printer_name, force=args.force)
+            print(("Printed " if printed else "Already printed ") + args.job_id)
+        elif args.grocery_command == "requeue":
+            requeue_grocery_job(conn, args.job_id)
             print("Requeued " + args.job_id)
         return
 

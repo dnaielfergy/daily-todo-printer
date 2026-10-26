@@ -23,4 +23,4 @@ SQLite is the source of truth for task state. Messaging systems and AI models ar
 - One-way only: working -> published -> executed. Explicit approval before publishing.
 - The printer host receives only data, not commands or executable scripts from the inbox.
 - GitHub inbox token must be read-only, narrowly scoped and kept outside the repository.
-- Phase A imports approved snapshots; #17 reconciles later approved revisions by withdrawing stale rows while preserving print history. Never print a withdrawn published job, even via manual force/requeue. Automatic meal printing remains disabled until the later scheduled-print milestone (#20).
+- Phase A imports approved snapshots. #17 reconciles revisions/withdrawals while preserving print history. #18 adds a single grocery list per week, revision-linked to the manifest. Grocery totals/quantities are agent-authored and human-approved; the printer never calculates amounts. Never print a withdrawn job, even via force/requeue. Both recipe and grocery printing stay manual until #20.

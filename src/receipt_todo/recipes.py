@@ -98,7 +98,9 @@ def ensure_jobs_table(conn: sqlite3.Connection) -> None:
             print_count INTEGER NOT NULL DEFAULT 0,
             inbox_week TEXT,
             inbox_active INTEGER NOT NULL DEFAULT 1 CHECK(inbox_active IN (0, 1)),
-            inbox_inactive_at TEXT
+            inbox_inactive_at TEXT,
+            job_kind TEXT NOT NULL DEFAULT 'recipe'
+                CHECK(job_kind IN ('recipe', 'grocery'))
         )
         """
     )
@@ -113,48 +115,70 @@ def ensure_jobs_table(conn: sqlite3.Connection) -> None:
         )
     if "inbox_inactive_at" not in columns:
         conn.execute("ALTER TABLE recipe_print_jobs ADD COLUMN inbox_inactive_at TEXT")
+    if "job_kind" not in columns:
+        conn.execute(
+            "ALTER TABLE recipe_print_jobs ADD COLUMN job_kind TEXT NOT NULL DEFAULT 'recipe'"
+        )
     if not conn.in_transaction:
         conn.commit()
 
 
-def submit_recipe_job(conn: sqlite3.Connection, payload: dict) -> bool:
-    """Return False for an identical replay; reject changed content under the same ID."""
-    validate_recipe_job(payload)
+def submit_print_job(conn: sqlite3.Connection, payload: dict, *, kind: str) -> bool:
+    """Idempotent local submit; IDs are unique across all print job types."""
+    if kind not in ("recipe", "grocery"):
+        raise ValueError("Unsupported print job type")
     ensure_jobs_table(conn)
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     with conn:
         existing = conn.execute(
-            "SELECT payload_json, inbox_active FROM recipe_print_jobs WHERE job_id = ?",
+            "SELECT payload_json, inbox_active, job_kind FROM recipe_print_jobs WHERE job_id = ?",
             (payload["job_id"],),
         ).fetchone()
         if existing is not None:
             if not existing["inbox_active"]:
                 raise ValueError("job_id was withdrawn; publish a new approved job_id instead")
-            if existing["payload_json"] != serialized:
-                raise ValueError("job_id already exists with different content; use a new job_id")
+            if existing["job_kind"] != kind or existing["payload_json"] != serialized:
+                raise ValueError("job_id already exists with different content or type; use a new job_id")
             return False
         conn.execute(
-            "INSERT INTO recipe_print_jobs (job_id, payload_json, created_at) VALUES (?, ?, ?)",
-            (payload["job_id"], serialized, _now()),
+            "INSERT INTO recipe_print_jobs (job_id, payload_json, created_at, job_kind) "
+            "VALUES (?, ?, ?, ?)",
+            (payload["job_id"], serialized, _now(), kind),
         )
     return True
 
 
-def get_recipe_job(conn: sqlite3.Connection, job_id: str) -> sqlite3.Row:
+def submit_recipe_job(conn: sqlite3.Connection, payload: dict) -> bool:
+    validate_recipe_job(payload)
+    return submit_print_job(conn, payload, kind="recipe")
+
+
+def get_print_job(conn: sqlite3.Connection, job_id: str, *, kind: str) -> sqlite3.Row:
     ensure_jobs_table(conn)
     row = conn.execute(
-        "SELECT * FROM recipe_print_jobs WHERE job_id = ?", (job_id,)
+        "SELECT * FROM recipe_print_jobs WHERE job_id = ? AND job_kind = ?",
+        (job_id, kind),
     ).fetchone()
     if row is None:
-        raise KeyError(f"Recipe job not found: {job_id}")
+        raise KeyError(f"{kind.capitalize()} job not found: {job_id}")
     return row
 
 
-def list_recipe_jobs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+def get_recipe_job(conn: sqlite3.Connection, job_id: str) -> sqlite3.Row:
+    return get_print_job(conn, job_id, kind="recipe")
+
+
+def list_print_jobs(conn: sqlite3.Connection, *, kind: str) -> list[sqlite3.Row]:
     ensure_jobs_table(conn)
     return conn.execute(
-        "SELECT * FROM recipe_print_jobs ORDER BY created_at DESC, job_id DESC"
+        "SELECT * FROM recipe_print_jobs WHERE job_kind = ? "
+        "ORDER BY created_at DESC, job_id DESC",
+        (kind,),
     ).fetchall()
+
+
+def list_recipe_jobs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return list_print_jobs(conn, kind="recipe")
 
 
 def _wrap(text: str, *, prefix: str = "", continuation: str = "") -> list[str]:
@@ -203,10 +227,12 @@ def render_recipe_job(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def print_recipe_job(
+def print_print_job(
     conn: sqlite3.Connection,
     job_id: str,
     *,
+    kind: str,
+    renderer,
     printer_name: str | None = None,
     force: bool = False,
 ) -> bool:
@@ -220,10 +246,11 @@ def print_recipe_job(
     ensure_jobs_table(conn)
     with conn:
         row = conn.execute(
-            "SELECT * FROM recipe_print_jobs WHERE job_id = ?", (job_id,)
+            "SELECT * FROM recipe_print_jobs WHERE job_id = ? AND job_kind = ?",
+            (job_id, kind),
         ).fetchone()
         if row is None:
-            raise KeyError(f"Recipe job not found: {job_id}")
+            raise KeyError(f"{kind.capitalize()} job not found: {job_id}")
         if not row["inbox_active"]:
             raise ValueError("Recipe job was withdrawn from the approved plan; cannot print or reprint")
         if row["status"] == "printed" and not force:
@@ -235,8 +262,8 @@ def print_recipe_job(
             )
         claimed = conn.execute(
             f"UPDATE recipe_print_jobs SET status = 'printing' WHERE job_id = ? "
-            f"AND inbox_active = 1 AND status IN ({','.join('?' for _ in allowed)})",
-            (job_id, *allowed),
+            f"AND inbox_active = 1 AND job_kind = ? AND status IN ({','.join('?' for _ in allowed)})",
+            (job_id, kind, *allowed),
         )
         if claimed.rowcount != 1:
             raise ValueError("Recipe job already claimed or withdrawn")
@@ -261,7 +288,7 @@ def print_recipe_job(
             raise ValueError("Recipe job was withdrawn before spooler handoff")
         try:
             payload = json.loads(row["payload_json"])
-            print_raw_windows(escpos_receipt(render_recipe_job(payload)), printer_name)
+            print_raw_windows(escpos_receipt(renderer(payload)), printer_name)
         except BaseException:
             conn.execute(
                 "UPDATE recipe_print_jobs SET status = 'needs_review' WHERE job_id = ?",
@@ -285,18 +312,35 @@ def print_recipe_job(
         raise
 
 
-def requeue_recipe_job(conn: sqlite3.Connection, job_id: str) -> None:
-    row = get_recipe_job(conn, job_id)
+def print_recipe_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    *,
+    printer_name: str | None = None,
+    force: bool = False,
+) -> bool:
+    return print_print_job(
+        conn, job_id, kind="recipe", renderer=render_recipe_job,
+        printer_name=printer_name, force=force,
+    )
+
+
+def requeue_print_job(conn: sqlite3.Connection, job_id: str, *, kind: str) -> None:
+    row = get_print_job(conn, job_id, kind=kind)
     if not row["inbox_active"]:
-        raise ValueError("Withdrawn recipe jobs cannot be requeued")
+        raise ValueError("Withdrawn print jobs cannot be requeued")
     if row["status"] not in ("printing", "needs_review"):
         raise ValueError("Only interrupted/uncertain jobs can be requeued")
     with conn:
         updated = conn.execute(
             "UPDATE recipe_print_jobs SET status = 'queued' "
-            "WHERE job_id = ? AND inbox_active = 1 "
+            "WHERE job_id = ? AND job_kind = ? AND inbox_active = 1 "
             "AND status IN ('printing', 'needs_review')",
-            (job_id,),
+            (job_id, kind),
         )
         if updated.rowcount != 1:
             raise ValueError("Job already changed or withdrawn")
+
+
+def requeue_recipe_job(conn: sqlite3.Connection, job_id: str) -> None:
+    requeue_print_job(conn, job_id, kind="recipe")
