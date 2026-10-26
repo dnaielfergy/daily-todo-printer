@@ -28,11 +28,11 @@ def recipe_job(job_id="2026-10-26-lunch-v1", *, title="Rice bowls", day="2026-10
         "job_id": job_id,
         "date": day,
         "meal": meal,
-        "recipe": {
+        "recipes": [{
             "title": title,
             "ingredients": [{"name": "rice", "amount": "1 cup"}],
             "steps": ["Cook rice and serve."],
-        },
+        }],
     }
 
 
