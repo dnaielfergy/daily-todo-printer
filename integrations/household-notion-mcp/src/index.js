@@ -6,7 +6,7 @@ import { createNotion } from "./notion.js";
 import { createNotionWriter } from "./writes.js";
 
 function createServer(env) {
-  const server = new McpServer({ name: "household-notion", version: "0.2.0" });
+  const server = new McpServer({ name: "household-notion", version: "0.2.0" }, { instructions: "Household Notion MCP reads and writes working Recipes and Weekly Meals only. For multi-step recipe, planning, grocery or publication work use the separately installed household-meal-planning Skill if available. Read current private household policy using the authenticated GitHub connector before grocery generation or publication; fail closed if unavailable. Notion writes do not publish or print. Explicit reviewed approval is required before merging private publication. Server instructions are advisory; authorization and validation are enforced by tools." });
   const notion = createNotion(env);
 
   function register(name, description, inputSchema, fn) {
@@ -29,7 +29,7 @@ function createServer(env) {
 
   register(
     "list_recipes",
-    "List household recipe titles, base serving yields and Notion page IDs. Follow next_cursor for later pages. Read-only; link-only recipes can require preparation.",
+    "List household recipe titles, base serving yields and Notion page IDs. For recipe management use household-meal-planning Skill when installed; this tool is working Notion only. Follow next_cursor for later pages. Read-only; link-only recipes can require preparation.",
     {
       limit: z.number().int().min(1).max(50).optional(),
       cursor: z.string().min(1).max(300).optional()
@@ -39,14 +39,14 @@ function createServer(env) {
 
   register(
     "get_recipe",
-    "Read one permitted household recipe, including its four-column Notion ingredient table and numbered cooking instructions. Only complete recipes are returned.",
+    "Read one permitted household recipe (not a grocery-policy source), including its four-column Notion ingredient table and numbered cooking instructions. Only complete recipes are returned.",
     { recipe_id: z.string().regex(/^[0-9a-f-]{32,36}$/i) },
     ({ recipe_id }) => notion.getRecipe(recipe_id)
   );
 
   register(
     "list_weekly_meals",
-    "Read dated breakfast, lunch and dinner assignments for an ISO Monday-start week. Breakfast is planning-only: v1 printable receipts support lunch/dinner.",
+    "Read working Notion dated breakfast, lunch and dinner assignments; use household-meal-planning Skill for cross-recipe scaling and private policy-gated groceries. for an ISO Monday-start week. Breakfast is planning-only: v1 printable receipts support lunch/dinner.",
     {
       week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       cursor: z.string().min(1).max(300).optional()
