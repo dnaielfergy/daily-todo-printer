@@ -90,4 +90,4 @@ Using the existing connected GitHub app, inspect the **configured private GitHub
 - [x] User confirmed an isolated Windows worktree and database passed branch preview, import, list, receipt previews and idempotent repeat. No automatic or physical printing was tested.
 - [ ] After the exact menu and groceries are approved, merge private publication and confirm production import from `main`.
 
-See [notion-integration-setup.md](docs/notion-integration-setup.md), [github-print-inbox.md](../../../docs/github-print-inbox.md), [recipe-jobs.md](../../../docs/recipe-jobs.md), [grocery-jobs.md](../../../docs/grocery-jobs.md), and [issue #19](https://github.com/dnaielfergy/daily-todo-printer/issues/19).
+See [notion-integration-setup.md](notion-integration-setup.md), [github-print-inbox.md](../../../docs/github-print-inbox.md), [recipe-jobs.md](../../../docs/recipe-jobs.md), [grocery-jobs.md](../../../docs/grocery-jobs.md), and [issue #19](https://github.com/dnaielfergy/daily-todo-printer/issues/19).
