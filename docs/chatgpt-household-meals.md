@@ -84,7 +84,7 @@ Using the existing connected GitHub app, inspect the **configured private GitHub
 - [x] User confirmed a native Recipes database template for manual entry; API creation writes the same blocks directly.
 - [ ] User explicitly reviews and approves a **real** complete menu and groceries for a week.
 - [ ] Private GitHub review PR is validated and merged **after** approval.
-- [x] **Premerge Windows runner check:** against private unmerged an unmerged private review PR, a Windows GitHub Actions runner fetched the private branch via a read-only token, preview-validated two jobs, imported both to a separate SQLite file, repeated import idempotently (0 new jobs), rendered recipe and grocery receipts, and confirmed zero print attempts. The test run and logs remain in the private repository.. No private `main` or real Windows host changed.
+- [x] **Premerge Windows runner check:** against an unmerged private review branch, a Windows GitHub Actions runner fetched the private branch via a read-only token, preview-validated two jobs, imported both to a separate SQLite file, repeated import idempotently (0 new jobs), rendered recipe and grocery receipts, and confirmed zero print attempts. The test run and logs remain in the private repository. No private `main` or real Windows host changed.
 - [x] User confirmed an isolated Windows worktree and database passed branch preview, import, list, receipt previews and idempotent repeat. No automatic or physical printing was tested.
 - [ ] After the exact menu and groceries are approved, merge private publication and confirm production import from `main`.
 
