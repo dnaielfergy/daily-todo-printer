@@ -232,15 +232,20 @@ export function createNotionWriter(env, transport = fetch) {
   }
 
   async function matchingMeals(meal) {
-    const data = await call("POST", "data_sources/" + meals + "/query", {
-      page_size: 10,
-      filter: {
-        and: [
-          { property: "Date", date: { equals: meal.date } },
-          { property: "Meal Type", select: { equals: meal.meal_type } }
-        ]
-      }
-    });
+    let data;
+    try {
+      data = await call("POST", "data_sources/" + meals + "/query", {
+        page_size: 10,
+        filter: {
+          and: [
+            { property: "Date", date: { equals: meal.date } },
+            { property: "Meal Type", select: { equals: meal.meal_type } }
+          ]
+        }
+      });
+    } catch (error) {
+      throw new Error("Weekly Meal duplicate-slot lookup failed: " + error.message);
+    }
     if (data.has_more) throw new Error("Meal slot has ambiguous duplicate records");
     return data.results;
   }
@@ -354,10 +359,14 @@ export function createNotionWriter(env, transport = fetch) {
       if (matching.length) {
         throw new Error("Meal slot already exists; update its existing ID instead");
       }
-      page = await call("POST", "pages", {
-        parent: { type: "data_source_id", data_source_id: meals },
-        properties: mealProperties(meal, suppliedTitle ?? sourceRecipe.name)
-      });
+      try {
+        page = await call("POST", "pages", {
+          parent: { type: "data_source_id", data_source_id: meals },
+          properties: mealProperties(meal, suppliedTitle ?? sourceRecipe.name)
+        });
+      } catch (error) {
+        throw new Error("Weekly Meal page creation failed: " + error.message);
+      }
       return { action: "created", meal_id: page.id, url: page.url };
     },
 
