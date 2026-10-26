@@ -29,14 +29,14 @@ class CoreTests(unittest.TestCase):
     def test_private_inbox_repository_must_be_explicit(self) -> None:
         config = Path(self.tmp.name) / "config.qa.toml"
         config.write_text(
-            '[recipe_inbox]\\ntoken = "fictional-test-token"\\n',
+            '[recipe_inbox]\ntoken = "fictional-test-token"\n',
             encoding="utf-8",
         )
         with self.assertRaisesRegex(ValueError, "recipe_inbox.repo"):
             load_recipe_inbox_settings(config)
         config.write_text(
-            '[recipe_inbox]\\ntoken = "fictional-test-token"\\n'
-            'repo = "example-owner/fictional-private-inbox"\\n',
+            '[recipe_inbox]\ntoken = "fictional-test-token"\n'
+            'repo = "example-owner/fictional-private-inbox"\n',
             encoding="utf-8",
         )
         self.assertEqual(
