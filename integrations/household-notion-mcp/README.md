@@ -1,8 +1,8 @@
 # Household Notion MCP — #19
 
-**Draft implementation; not deployed.** This Cloudflare Worker connects ChatGPT to the existing household Notion Recipes and Weekly Meals databases. It exposes **three read tools** and **three write tools disabled by default**.
+**Deployed on an Access-protected hostname for live acceptance; PR #23 remains a draft.** This Cloudflare Worker connects ChatGPT to the existing household Notion Recipes and Weekly Meals databases. It exposes **three read tools** and three working-state write tools gated by the `ENABLE_NOTION_WRITES=true` runtime binding. The live read/write fictional-data acceptance checks passed; the publishing approval gate remains separate.
 
-The editable Notion plan and the approved GitHub print snapshots are independent. Writing a meal assignment or recipe **does not publish, print, or cancel an approved grocery/meal receipt**. Publishing requires an explicit review and approval through the private GitHub inbox workflow, implemented separately in #19.
+The editable Notion plan and the approved GitHub print snapshots are independent. Writing a meal assignment or recipe **does not publish, print, or cancel an approved grocery/meal receipt**. Publishing requires an explicit review and approval through the private GitHub inbox workflow; see [the ChatGPT household meals playbook](../../docs/chatgpt-household-meals.md).
 
 ## Approved Notion schema
 
@@ -73,4 +73,4 @@ The third command is a **Wrangler dry-run bundle check**, not a deployment. Test
 
 Set ENABLE_NOTION_WRITES=false, revoke or rotate Notion credentials, and/or disable the Cloudflare Access app. No production Windows, SQLite, or receipt schedule modifications are needed.
 
-**No real Notion records, credentials, Cloudflare deployments, or production printer changes have been made by this PR.**
+**Live acceptance:** Cloudflare Worker and OAuth connection were deployed; a real reference recipe was read without editing it. A clearly labeled fictional recipe was created/edited and a fictional weekly meal created/updated/archived. No live Windows printing or GitHub publication was performed; do not treat a Notion write as publication approval. The fictional recipe remains clearly labeled for user cleanup.
