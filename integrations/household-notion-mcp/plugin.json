@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "household-meal-planning",
+  "version": "0.1.0",
+  "description": "Household Notion recipes, weekly meal planning, policy-aware groceries, and reviewed private print publication.",
+  "extensions": {
+    "com.openai": {
+      "apps": "./.app.json",
+      "interface": {
+        "displayName": "Household Meal Planning",
+        "shortDescription": "Notion recipes, meal plans and reviewed print publication",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ]
+      }
+    }
+  }
+}
