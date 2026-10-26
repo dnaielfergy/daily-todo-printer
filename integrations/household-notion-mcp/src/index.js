@@ -92,6 +92,7 @@ function createServer(env) {
         expected_last_edited_time: z.string().max(50).optional(),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         meal_type: z.enum(["Breakfast", "Lunch", "Dinner"]),
+        title: z.string().min(1).max(160).optional(),
         recipe_id: notionId,
         servings: z.number().positive().max(100).nullable().optional()
       },
