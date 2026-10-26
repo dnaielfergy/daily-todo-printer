@@ -365,6 +365,23 @@ export function createNotionWriter(env, transport = fetch) {
           properties: mealProperties(meal, suppliedTitle ?? sourceRecipe.name)
         });
       } catch (error) {
+        // Only inspect allowlisted schema metadata on a failed write; never
+        // include Notion's error body or private page contents in a tool error.
+        if (error.message.includes("HTTP 400")) {
+          const schema = await call("GET", "data_sources/" + meals);
+          const expected = {
+            Meal: "title", Date: "date", "Meal Type": "select",
+            "Meal link": "relation", Servings: "number"
+          };
+          const mismatches = Object.entries(expected)
+            .filter(([name, kind]) => schema.properties?.[name]?.type !== kind)
+            .map(([name, kind]) =>
+              name + ": expected " + kind + ", found " +
+              (schema.properties?.[name]?.type ?? "missing"));
+          if (mismatches.length) {
+            throw new Error("Weekly Meals schema mismatch: " + mismatches.join("; "));
+          }
+        }
         throw new Error("Weekly Meal page creation failed: " + error.message);
       }
       return { action: "created", meal_id: page.id, url: page.url };
