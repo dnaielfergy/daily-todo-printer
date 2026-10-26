@@ -24,9 +24,11 @@ def _text(value: object, label: str, limit: int) -> str:
     if any(ord(char) < 32 or 127 <= ord(char) < 160 for char in cleaned):
         raise ValueError(f"{label} contains control characters")
     try:
-        cleaned.encode("cp437")
+        encoded = cleaned.encode("cp437")
     except UnicodeEncodeError as exc:
         raise ValueError(f"{label} contains characters unsupported by the printer") from exc
+    if any(byte < 32 or byte == 127 for byte in encoded):
+        raise ValueError(f"{label} contains printer control bytes")
     return cleaned
 
 
