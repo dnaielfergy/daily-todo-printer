@@ -44,34 +44,39 @@ def validate_recipe_job(payload: object) -> dict:
     if payload.get("meal") not in ("lunch", "dinner"):
         raise ValueError("meal must be lunch or dinner")
 
-    recipe = payload.get("recipe")
-    if not isinstance(recipe, dict):
-        raise ValueError("recipe must be an object")
-    _text(recipe.get("title"), "recipe.title", 160)
-    servings = recipe.get("servings")
-    if servings is not None and (type(servings) is not int or not 1 <= servings <= 100):
-        raise ValueError("recipe.servings must be an integer between 1 and 100")
-    for field in ("prep_minutes", "cook_minutes"):
-        value = recipe.get(field)
-        if value is not None and (type(value) is not int or not 0 <= value <= 1440):
-            raise ValueError(f"recipe.{field} must be an integer between 0 and 1440")
+    recipes = payload.get("recipes")
+    if not isinstance(recipes, list) or not 1 <= len(recipes) <= 12:
+        raise ValueError("recipes must contain 1-12 recipe objects")
+    for recipe in recipes:
+        if not isinstance(recipe, dict):
+            raise ValueError("each recipe must be an object")
+        _text(recipe.get("title"), "recipe.title", 160)
+        servings = recipe.get("servings")
+        if servings is not None and (type(servings) is not int or not 1 <= servings <= 100):
+            raise ValueError("recipe.servings must be an integer between 1 and 100")
+        for field in ("prep_minutes", "cook_minutes"):
+            value = recipe.get(field)
+            if value is not None and (type(value) is not int or not 0 <= value <= 1440):
+                raise ValueError(f"recipe.{field} must be an integer between 0 and 1440")
 
-    ingredients = recipe.get("ingredients")
-    if not isinstance(ingredients, list) or not 1 <= len(ingredients) <= 80:
-        raise ValueError("recipe.ingredients must contain 1-80 items")
-    for index, ingredient in enumerate(ingredients):
-        if not isinstance(ingredient, dict):
-            raise ValueError(f"recipe.ingredients[{index}] must be an object")
-        _text(ingredient.get("name"), f"ingredient {index} name", 200)
-        if "amount" in ingredient and ingredient["amount"] is not None:
-            _text(ingredient["amount"], f"ingredient {index} amount", 100)
+        ingredients = recipe.get("ingredients")
+        if not isinstance(ingredients, list) or not 1 <= len(ingredients) <= 80:
+            raise ValueError("recipe.ingredients must contain 1-80 items")
+        for index, ingredient in enumerate(ingredients):
+            if not isinstance(ingredient, dict):
+                raise ValueError(f"recipe.ingredients[{index}] must be an object")
+            _text(ingredient.get("name"), f"ingredient {index} name", 200)
+            if "amount" in ingredient and ingredient["amount"] is not None:
+                _text(ingredient["amount"], f"ingredient {index} amount", 100)
 
-    steps = recipe.get("steps")
-    if not isinstance(steps, list) or not 1 <= len(steps) <= 60:
-        raise ValueError("recipe.steps must contain 1-60 instructions")
-    for index, step in enumerate(steps):
-        _text(step, f"step {index + 1}", 2000)
+        steps = recipe.get("steps")
+        if not isinstance(steps, list) or not 1 <= len(steps) <= 60:
+            raise ValueError("recipe.steps must contain 1-60 instructions")
+        for index, step in enumerate(steps):
+            _text(step, f"step {index + 1}", 2000)
 
+    if "recipe" in payload:
+        raise ValueError("Use recipes array, not legacy recipe field")
     if "source" in payload and payload["source"] is not None:
         source = payload["source"]
         if not isinstance(source, dict):
@@ -194,33 +199,35 @@ def _wrap(text: str, *, prefix: str = "", continuation: str = "") -> list[str]:
 
 def render_recipe_job(payload: dict) -> str:
     validate_recipe_job(payload)
-    recipe = payload["recipe"]
     lines = [
         "=" * WIDTH,
         f'{payload["meal"].upper()} / {payload["date"]}',
         "=" * WIDTH,
         "",
     ]
-    lines.extend(_wrap(recipe["title"].strip()))
-    details = []
-    if recipe.get("servings") is not None:
-        details.append(f'Serves {recipe["servings"]}')
-    if recipe.get("prep_minutes") is not None:
-        details.append(f'Prep {recipe["prep_minutes"]}m')
-    if recipe.get("cook_minutes") is not None:
-        details.append(f'Cook {recipe["cook_minutes"]}m')
-    if details:
-        lines.extend(["", " | ".join(details)])
-    lines.extend(["", "INGREDIENTS", ""])
-    for item in recipe["ingredients"]:
-        amount = item.get("amount")
-        name = item["name"].strip()
-        lines.extend(_wrap(f'{str(amount).strip() + " " if amount else ""}{name}', prefix="- ", continuation="  "))
-    lines.extend(["", "METHOD", ""])
-    for index, step in enumerate(recipe["steps"], start=1):
-        label = f"{index}. "
-        lines.extend(_wrap(step.strip(), prefix=label, continuation=" " * len(label)))
-        lines.append("")
+    for recipe_index, recipe in enumerate(payload["recipes"], start=1):
+        if recipe_index > 1:
+            lines.extend(["", "-" * WIDTH, ""])
+        lines.extend(_wrap(recipe["title"].strip()))
+        details = []
+        if recipe.get("servings") is not None:
+            details.append(f'Serves {recipe["servings"]}')
+        if recipe.get("prep_minutes") is not None:
+            details.append(f'Prep {recipe["prep_minutes"]}m')
+        if recipe.get("cook_minutes") is not None:
+            details.append(f'Cook {recipe["cook_minutes"]}m')
+        if details:
+            lines.extend(["", " | ".join(details)])
+        lines.extend(["", "INGREDIENTS", ""])
+        for item in recipe["ingredients"]:
+            amount = item.get("amount")
+            name = item["name"].strip()
+            lines.extend(_wrap(f'{str(amount).strip() + " " if amount else ""}{name}', prefix="- ", continuation="  "))
+        lines.extend(["", "METHOD", ""])
+        for index, step in enumerate(recipe["steps"], start=1):
+            label = f"{index}. "
+            lines.extend(_wrap(step.strip(), prefix=label, continuation=" " * len(label)))
+            lines.append("")
     lines.append("-" * WIDTH)
     lines.extend(_wrap(f'Job: {payload["job_id"]}'))
     lines.append("=" * WIDTH)
