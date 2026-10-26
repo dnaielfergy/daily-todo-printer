@@ -68,7 +68,7 @@ function createServer(env) {
     });
     register(
       "save_recipe",
-      "Create or revise one household Notion recipe with the approved four-column ingredient table and numbered steps. To revise, supply recipe_id and the last_edited_time from get_recipe; the full ingredient/instruction lists replace the prior managed content. This modifies working Notion only—NEVER publishes to GitHub or prints.",
+      "Create a fully structured household Notion recipe, populate an existing blank/link-only recipe or default-template skeleton, or revise structured ingredients and numbered steps. For an existing recipe supply recipe_id and expected_last_edited_time from list_recipes (or get_recipe when complete); full managed ingredient/instruction lists replace previous managed content. Preserves unrelated notes, rejects ambiguous layouts. Working Notion only; NEVER publishes or prints.",
       {
         recipe_id: notionId.optional(),
         expected_last_edited_time: z.string().max(50).optional(),
