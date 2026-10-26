@@ -101,15 +101,11 @@ Set ENABLE_NOTION_WRITES=false, revoke or rotate Notion credentials, and/or disa
 
 **Live acceptance:** Cloudflare Worker and OAuth connection were deployed; a real reference recipe was read without editing it. A clearly labeled fictional recipe was created/edited and a fictional weekly meal created/updated/archived. No live Windows printing or GitHub publication was performed; do not treat a Notion write as publication approval. The fictional recipe remains clearly labeled for user cleanup.
 
-## ChatGPT Skill distribution (independent of Worker)
+## Combined ChatGPT plugin
 
-The canonical [Household Meal Planning Skill](skills/household-meal-planning/SKILL.md) includes an `agents/openai.yaml` and four selectively loaded references. It is **not** installed merely by committing to Git or deploying this Cloudflare Worker. Package the whole `skills/household-meal-planning/` folder as a single Skill ZIP and upload/install it through the intended ChatGPT workspace's Skills/plugin UI (or import a plugin package that explicitly bundles the skill); refresh/reinstall after each Skill change. Confirm the actual installed Skill appears in the skills list and its instructions can be read in a **new chat**. Remote MCP registration and skill installation are separate capabilities; a connected MCP-only plugin may expose tools without importing repository Skill files. If plugin packaging for remote MCP + Skills is unavailable on your workspace/web runtime, install the Skill separately; do not claim discovery until verified in a fresh chat.
+See [official-format packaging and acceptance steps](docs/plugin-packaging.md). This plugin combines the existing Cloudflare Access/OAuth-protected MCP **and** the bundled household-meal-planning Skill through the existing registered MCP connection mapping. The portable manifest is [plugin.json](plugin.json); the required workspace-specific `.app.json` connection mapping must be created privately using the official plugin creator and is ignored by Git. No new OAuth client or independent Skill install is needed once the complete plugin package is installed. Git merge alone and Cloudflare deployment alone never installs a ChatGPT Skill. Test the web runtime separately from desktop/local marketplace behavior.
 
-A new grocery planning run must fetch current `policies/household.md` from the **configured private print-inbox repository's main** using the connected authenticated GitHub tool. Keep repository identity and actual policy contents out of this public package. Read failures stop policy-dependent output and publication; no default exclusions. Editing the private policy requires **no Cloudflare deploy or Skill reinstall**. The existing GitHub connector was verified to read the private repo; no additional MCP policy tool is added.
-
-The MCP uses SDK server-level `instructions` as advisory initialization guidance alongside tool descriptions. Verify actual client initialization visibility in a fresh authorized MCP session; clients can ignore server instructions and cannot be forced to load a Skill. Code-side access control, write gating and validation remain primary boundaries.
-
-For an integration deployment only, use the existing protected Worker pipeline. Skill-only updates should not require redeploying the Worker; deployment may still be triggered by the current integration-wide workflow path filter, so skip or narrow deployment when installing the skill. This does not grant authorization to print or merge an inbox PR.
+Private policy is retrieved at runtime through the authorized GitHub connector, not bundled. Worker instructions are advisory; verify them in an authenticated initialize response.
 
 ## Manual acceptance matrix (no production side effects)
 
