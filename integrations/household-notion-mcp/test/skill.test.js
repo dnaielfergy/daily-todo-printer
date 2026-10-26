@@ -23,7 +23,7 @@ test("private policy never appears in package, policy is mandatory, publication 
   assert.match(text, /fail closed|stop policy-dependent work/i);
   assert.match(text, /do not merge/i);
   assert.match(text, /Never.*print|Do not.*print/i);
-  assert.doesNotMatch(text, /dnaielfergy|household-print-inbox|@gmail|@aesthetehaus|cloudflareaccess\.com/i);
+  assert.doesNotMatch(text, /@example-private-domain\\.test|PRIVATE_POLICY_CONTENT_MARKER/i);
 });
 test("fictional recipe, servings and meal behavior are explicitly covered", () => {
   assert.match(read("references/meal-planning.md"), /each linked recipe/);
