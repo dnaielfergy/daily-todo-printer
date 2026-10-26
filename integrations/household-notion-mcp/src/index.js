@@ -86,14 +86,14 @@ function createServer(env) {
     );
     register(
       "save_weekly_meal",
-      "Create or revise one dated household Weekly Meals entry, linking exactly one complete recipe. To revise, supply meal_id and last_edited_time from list_weekly_meals. Duplicate date/type slots are rejected. Writes working Notion only—not the approved private GitHub print inbox.",
+      "Create or revise one dated household Weekly Meals entry, linking one or more complete recipes. To revise, supply meal_id and last_edited_time from list_weekly_meals. Duplicate date/type slots are rejected. Writes working Notion only—not the approved private GitHub print inbox.",
       {
         meal_id: notionId.optional(),
         expected_last_edited_time: z.string().max(50).optional(),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         meal_type: z.enum(["Breakfast", "Lunch", "Dinner"]),
         title: z.string().min(1).max(160).optional(),
-        recipe_id: notionId,
+        recipe_ids: z.array(notionId).min(1).max(50),
         servings: z.number().positive().max(100).nullable().optional()
       },
       (args) => writer.saveWeeklyMeal(args)
