@@ -171,8 +171,8 @@ test("invalid ingredient, unsafe URL and meal date fail before network calls", (
   ] }), /quantity/);
   assert.throws(() => validateRecipe({ ...payload(), source_url: "file:///private/key" }), /HTTP/);
   assert.throws(() => validateRecipe({ ...payload(), name: "Evil\u0000" }), /recipe name/);
-  assert.throws(() => validateMeal({ date: "2026-02-30", meal_type: "Dinner", recipe_id: id(3) }), /date/);
-  assert.throws(() => validateMeal({ date: "2026-11-02", meal_type: "Snack", recipe_id: id(3) }), /type/);
+  assert.throws(() => validateMeal({ date: "2026-02-30", meal_type: "Dinner", recipe_ids: [id(3)] }), /date/);
+  assert.throws(() => validateMeal({ date: "2026-11-02", meal_type: "Snack", recipe_ids: [id(3)] }), /type/);
 });
 
 test("write operations are disabled by default", () => {
@@ -184,7 +184,7 @@ test("create recipe uses allowlisted data source, no other Notion URL", async ()
   const fixture = createFixture();
   const saved = await createNotionWriter(env, fixture.fakeFetch).saveRecipe(payload());
   assert.deepEqual({ action: saved.action, recipe_id: saved.recipe_id },
-    { action: "created", recipe_id: fixture.pageId });
+    { action: "created", recipe_ids: [fixture.pageId] });
   const post = fixture.calls.find((call) => call.method === "POST" && call.path === "/v1/pages");
   assert.equal(post.body.parent.data_source_id, normal(id(1)));
   assert.equal(post.body.children[1].table.children.length, 3);
@@ -204,7 +204,7 @@ test("out-of-scope recipe update is denied before mutation", async () => {
   const fixture = createFixture();
   fixture.state.recipePage.parent.data_source_id = id(7);
   await assert.rejects(() => createNotionWriter(env, fixture.fakeFetch).saveRecipe({
-    ...payload(), recipe_id: fixture.pageId,
+    ...payload(), recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-25T20:00:00.000Z"
   }), /outside/);
   assert(fixture.calls.every((call) => call.method !== "PATCH"));
@@ -213,7 +213,7 @@ test("out-of-scope recipe update is denied before mutation", async () => {
 test("stale recipe update is refused before touching page blocks", async () => {
   const fixture = createFixture();
   await assert.rejects(() => createNotionWriter(env, fixture.fakeFetch).saveRecipe({
-    ...payload(), recipe_id: fixture.pageId,
+    ...payload(), recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-24T20:00:00.000Z"
   }), /changed since/);
   assert(fixture.calls.every((call) => call.method === "GET"));
@@ -228,7 +228,7 @@ test("same-count recipe edit updates only managed rows/steps and reads back", as
       { ingredient: "Onion", quantity: "1", unit: "each", notes: "Diced" }
     ],
     instructions: ["Brown onion.", "Serve."],
-    recipe_id: fixture.pageId,
+    recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-25T20:00:00.000Z"
   });
   assert.equal(result.action, "updated");
@@ -246,7 +246,7 @@ test("populate a link-only recipe without destroying existing source notes", asy
     { id: id(20), type: "paragraph", paragraph: { rich_text: rich("Human source notes: preserve me.") } }
   ];
   const result = await createNotionWriter(env, fixture.fakeFetch).saveRecipe({
-    ...payload(), recipe_id: fixture.pageId,
+    ...payload(), recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-25T20:00:00.000Z"
   });
   assert.equal(result.action, "updated");
@@ -279,7 +279,7 @@ test("populate a default blank template in place, preserving Notes and headings"
     ] } }
   ];
   const result = await createNotionWriter(env, fixture.fakeFetch).saveRecipe({
-    ...payload(), recipe_id: fixture.pageId,
+    ...payload(), recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-25T20:00:00.000Z"
   });
   assert.equal(result.action, "updated");
@@ -301,7 +301,7 @@ test("populate a header-only template with missing table and no instructions", a
     { id: id(21), type: "paragraph", paragraph: { rich_text: rich("Keep manual notes.") } }
   ];
   const result = await createNotionWriter(env, fixture.fakeFetch).saveRecipe({
-    ...payload(), recipe_id: fixture.pageId,
+    ...payload(), recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-25T20:00:00.000Z"
   });
   assert.equal(result.action, "updated");
@@ -323,7 +323,7 @@ test("reject ambiguous recipe headings or tables without mutating content", asyn
     const fixture = createFixture();
     mutate(fixture);
     await assert.rejects(() => createNotionWriter(env, fixture.fakeFetch).saveRecipe({
-      ...payload(), recipe_id: fixture.pageId,
+      ...payload(), recipe_ids: [fixture.pageId],
       expected_last_edited_time: "2026-10-25T20:00:00.000Z"
     }), /manual review required/);
     assert(fixture.calls.every((c) => c.method === "GET"),
@@ -335,7 +335,7 @@ test("revise a structured recipe with growing and shrinking managed blocks", asy
   const fixture = createFixture();
   const writer = createNotionWriter(env, fixture.fakeFetch);
   const ref = {
-    recipe_id: fixture.pageId,
+    recipe_ids: [fixture.pageId],
     expected_last_edited_time: "2026-10-25T20:00:00.000Z"
   };
   const expanded = await writer.saveRecipe({
@@ -363,7 +363,7 @@ test("weekly meal saves only after recipe is complete and checks slot conflicts"
   const fixture = createFixture();
   const writer = createNotionWriter(env, fixture.fakeFetch);
   const saved = await writer.saveWeeklyMeal({
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId,
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId],
     servings: 2
   });
   assert.equal(saved.action, "created");
@@ -371,9 +371,12 @@ test("weekly meal saves only after recipe is complete and checks slot conflicts"
   assert.equal(post.body.parent.data_source_id, normal(id(2)));
   assert.equal(post.body.properties.Meal.title[0].text.content, "Fictional Bowl");
   assert.deepEqual(post.body.properties["Meal Link"].relation, [{ id: normal(id(3)) }]);
+  const multi = validateMeal({ date: "2026-11-02", meal_type: "Dinner", recipe_ids: [id(3), id(5)] });
+  assert.equal(multi.recipe_ids.length, 2);
+  assert.throws(() => validateMeal({ date: "2026-11-02", meal_type: "Dinner", recipe_ids: [id(3), id(3)] }), /Duplicate/);
   fixture.state.mealMatches = [{ id: fixture.mealId }];
   await assert.rejects(() => writer.saveWeeklyMeal({
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId]
   }), /already exists/);
 });
 
@@ -383,13 +386,13 @@ test("weekly meal updates require fresh edit token and matching meal source", as
   await assert.rejects(() => writer.saveWeeklyMeal({
     meal_id: fixture.mealId,
     expected_last_edited_time: "2026-10-24T20:00:00.000Z",
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId]
   }), /changed since/);
   assert.equal(fixture.calls.some((call) => call.method === "PATCH"), false);
   const updated = await writer.saveWeeklyMeal({
     meal_id: fixture.mealId,
     expected_last_edited_time: "2026-10-25T20:00:00.000Z",
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId]
   });
   assert.equal(updated.action, "updated");
   const edit = fixture.calls.find((c) => c.method === "PATCH");
