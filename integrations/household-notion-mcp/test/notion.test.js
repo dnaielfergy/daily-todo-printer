@@ -24,8 +24,9 @@ const pages = {
     id: uuid(4),
     properties: {
       Date: { type: "date", date: { start: "2026-11-02" } },
+      Day: { type: "date", date: { start: "2026-11-05" } }, // Independent legacy date must not drive scheduling
       "Meal Type": { type: "select", select: { name: "Dinner" } },
-      "Meal link": { type: "relation", relation: [{ id: uuid(3) }] },
+      "Meal Link": { type: "relation", relation: [{ id: uuid(3) }] },
       Servings: { type: "number", number: 2 }
     }
   }
@@ -91,8 +92,8 @@ test("weekly meal relation and printability are deterministic", () => {
   const breakfast = structuredClone(pages.meal);
   breakfast.properties["Meal Type"].select.name = "Breakfast";
   assert.equal(weeklyMeal(breakfast).printable, false);
-  breakfast.properties["Meal link"].relation = [];
-  assert.throws(() => weeklyMeal(breakfast), /one Meal link/);
+  breakfast.properties["Meal Link"].relation = [];
+  assert.throws(() => weeklyMeal(breakfast), /one Meal Link/);
 });
 
 test("week start must be a real Monday", () => {
