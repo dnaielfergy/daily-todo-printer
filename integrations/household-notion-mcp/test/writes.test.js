@@ -214,7 +214,7 @@ test("weekly meal saves only after recipe is complete and checks slot conflicts"
   const post = fixture.calls.find((c) => c.path === "/v1/pages" && c.method === "POST");
   assert.equal(post.body.parent.data_source_id, normal(id(2)));
   assert.equal(post.body.properties.Meal.title[0].text.content, "Fictional Bowl");
-  assert.deepEqual(post.body.properties["Meal link"].relation, [{ id: normal(id(3)) }]);
+  assert.deepEqual(post.body.properties["Meal Link"].relation, [{ id: normal(id(3)) }]);
   fixture.state.mealMatches = [{ id: fixture.mealId }];
   await assert.rejects(() => writer.saveWeeklyMeal({
     date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
