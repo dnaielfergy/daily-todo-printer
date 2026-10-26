@@ -5,9 +5,19 @@ on:
       - "integrations/household-notion-mcp/**"
       - ".github/workflows/household-notion-mcp.yml"
   push:
+    branches: [main]
     paths:
       - "integrations/household-notion-mcp/**"
       - ".github/workflows/household-notion-mcp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: household-notion-mcp-production
+  cancel-in-progress: false
+
 jobs:
   test-and-bundle:
     runs-on: ubuntu-latest
@@ -22,3 +32,31 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run check
+
+  deploy:
+    # Never grant Cloudflare credentials to pull requests or arbitrary branches.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: test-and-bundle
+    runs-on: ubuntu-latest
+    environment: household-mcp-production
+    defaults:
+      run:
+        working-directory: integrations/household-notion-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - name: Verify deployment credentials are configured
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing Cloudflare API token in household-mcp-production environment"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing Cloudflare account ID in household-mcp-production environment"; exit 1; }
+      - name: Deploy protected Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy

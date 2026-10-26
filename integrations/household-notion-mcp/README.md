@@ -68,6 +68,24 @@ From integrations/household-notion-mcp, run:
 
 The third command is a **Wrangler dry-run bundle check**, not a deployment. Tests contain only fictional recipes and mock Notion responses.
 
+## Automated Cloudflare deployment (public repository)
+
+The public repository includes only code, a Worker name and GitHub Actions definitions. The existing Cloudflare Access hostname, Notion identifiers, token, and authorized email must **not** be committed. GitHub Actions can deploy to your account without making those values public.
+
+One-time setup as a repository administrator:
+
+1. In GitHub repository **Settings → Environments**, create `household-mcp-production`. Restrict deployment branches to **main**; optionally enable required reviewers to approve every production rollout. Prefer the reviewer gate for the initial release.
+2. Create **environment secrets** in that environment: `CLOUDFLARE_API_TOKEN` (a dedicated, least-privilege token for editing this Worker; not a Global API Key) and `CLOUDFLARE_ACCOUNT_ID`. Do not put token values into workflow YAML, commits, issue comments, logs or PRs. The account ID is not itself a credential but is kept out of the public repository.
+3. In Cloudflare, verify that the existing `household-notion-mcp` Worker has the seven required encrypted bindings listed above and its existing **Cloudflare Access** custom domain is still protected. These bindings stay in Cloudflare; the GitHub workflow does **not** need the Notion token or private data-source identifiers. Do not add a route to the public Wrangler config.
+4. Merge this workflow PR only after the environment exists. A merge on `main` triggers tests then the deployment job (if approved when reviewers are required). To rerun a deployment without code changes, use GitHub **Actions → Household Notion MCP (read/write guarded) → Run workflow**, choose `main`. Pull requests only test; they cannot access deployment secrets.
+5. Refresh the ChatGPT Household MCP plugin after a successful deployment and verify `save_weekly_meal` now accepts the `recipe_ids` array. Perform one real two-recipe Notion meal save and read-back before private print publication.
+
+The Wrangler config has `workers_dev: false` and `keep_vars: true` to preserve dashboard-managed runtime values. Existing encrypted secrets are retained across normal Wrangler deployments. Do not use a Cloudflare token with permissions broader than required for Worker deployments. Cloudflare Access policy and route changes are out of scope; verify those remain unchanged after deployment.
+
+**Security boundary:** A public PR or fork runs tests only. Secrets become available only to the production deployment job on the protected `main` branch, subject to the environment's required review (if configured). A maintainer who can change and merge workflow code to `main` can also alter what executes with production credentials; keep branch protection and code review enabled. Never enable secret-bearing jobs on `pull_request_target`.
+
+**Rollback:** GitHub Actions can redeploy an earlier trusted commit from `main` only by a new revert commit. Alternatively, use Cloudflare's existing Worker version/deployment history to roll back. Restore `main` to known-good code before further auto-deployments.
+
 ## Acceptance gates
 
 1. Create a dedicated household Notion integration and connect **only Recipes and Weekly Meals**; capture each **data source ID**, not its database/view URL. Validate exact live property types/names before deployment.
