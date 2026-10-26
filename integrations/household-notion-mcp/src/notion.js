@@ -87,13 +87,13 @@ export function weeklyMeal(page) {
   const p = page?.properties ?? {};
   const date = p.Date?.date?.start;
   const mealType = p["Meal Type"]?.select?.name;
-  const relation = p["Meal link"]?.relation;
+  const relation = p["Meal Link"]?.relation;
   const servings = p.Servings?.number ?? null;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
       !["Breakfast", "Lunch", "Dinner"].includes(mealType) ||
       !Array.isArray(relation) || relation.length !== 1 ||
       (servings !== null && (!Number.isFinite(servings) || servings <= 0))) {
-    throw new Error("Weekly meal needs Date, Meal Type, one Meal link and optional positive Servings");
+    throw new Error("Weekly meal needs Date, Meal Type, one Meal Link and optional positive Servings");
   }
   return {
     id: page.id,
