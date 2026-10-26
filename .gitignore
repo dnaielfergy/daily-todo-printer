@@ -15,7 +15,8 @@ data/*.db-*
 .env
 .env.*
 !.env.example
-config.local.toml
+config.*.toml
+!config.example.toml
 
 # Editor / OS noise
 .vscode/

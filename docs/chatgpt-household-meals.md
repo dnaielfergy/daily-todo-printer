@@ -5,7 +5,7 @@
 **Source-of-truth boundaries**
 
 - **Working:** Household Notion's existing Recipes and Weekly Meals data sources, accessed only using the installed **Household MCP** tools. The regular connected Notion integration may point at another workspace; never use it as a substitute.
-- **Published:** Private `dnaielfergy/household-print-inbox` `main` holds the latest explicitly approved weekly manifest and immutable job JSON.
+- **Published:** The configured private GitHub inbox's `main` branch holds the latest explicitly approved weekly manifest and immutable job JSON.
 - **Executed:** Windows `receipt-todo recipe sync` imports a pinned Git commit to SQLite. Importing **never prints**. Automatic recipe/grocery printing is out of scope until #20.
 - Never put real household recipe content, grocery lists, account identifiers, credentials or approvals in the **public** `daily-todo-printer` repo. Keep actual snapshots and their review PRs in the **private** inbox.
 
@@ -53,7 +53,7 @@ Calculation rules:
 
 ## C. Prepare the private GitHub publication **without publishing**
 
-Using the existing connected GitHub app, inspect the **private** `dnaielfergy/household-print-inbox` repo's current `main` first; read `inbox.json` and this week's manifest if present. Do **not** place personal snapshot data in the public code repo.
+Using the existing connected GitHub app, inspect the **configured private GitHub inbox** repository's current `main` first; read `inbox.json` and this week's manifest if present. Do **not** place personal snapshot data in the public code repo.
 
 1. Prepare a new `review/<week-start>-r<N>` branch from current private `main`. Do not write or merge into private `main` directly. When acting before approval, create only the **review PR**, clearly marked **UNAPPROVED / NOT FOR MERGE**.
 2. For each selected **lunch/dinner** slot, create one **immutable** `weeks/<Monday>/jobs/<safe-unique-job-id>.json` matching [recipe-jobs.md](recipe-jobs.md):
@@ -78,14 +78,14 @@ Using the existing connected GitHub app, inspect the **private** `dnaielfergy/ho
 ## Live acceptance gates
 
 - [x] Household MCP OAuth + scoped read tools worked in ChatGPT.
-- [x] Egg Roll in a Bowl's native 4-column table and numbered instructions read end-to-end after adding the `Ingredients` heading.
+- [x] A structured recipe's native 4-column table and numbered instructions read end-to-end after adding the `Ingredients` heading.
 - [x] Fictional recipe create/edit/readback + stale and duplicate rejection.
 - [x] Fictional meal create/serving update/duplicate rejection/archive after fixing `Meal Link` capitalization.
-- [ ] Native Recipes database template configured by a human in Notion UI.
+- [x] User confirmed a native Recipes database template for manual entry; API creation writes the same blocks directly.
 - [ ] User explicitly reviews and approves a **real** complete menu and groceries for a week.
 - [ ] Private GitHub review PR is validated and merged **after** approval.
-- [x] **Premerge Windows runner check:** against private unmerged [review PR #4](https://github.com/dnaielfergy/household-print-inbox/pull/4), a Windows GitHub Actions runner fetched the private branch via a read-only token, preview-validated two jobs, imported both to a separate SQLite file, repeated import idempotently (0 new jobs), rendered recipe and grocery receipts, and confirmed zero print attempts. [Successful run](https://github.com/dnaielfergy/household-print-inbox/actions/runs/40272598690). No private `main` or real Windows host changed.
-- [ ] Physical Windows host acceptance remains separate; user runs isolated-db branch test without changing the live config or production DB. No automatic printing.
+- [x] **Premerge Windows runner check:** against an unmerged private review branch, a Windows GitHub Actions runner fetched the private branch via a read-only token, preview-validated two jobs, imported both to a separate SQLite file, repeated import idempotently (0 new jobs), rendered recipe and grocery receipts, and confirmed zero print attempts. The test run and logs remain in the private repository. No private `main` or real Windows host changed.
+- [x] User confirmed an isolated Windows worktree and database passed branch preview, import, list, receipt previews and idempotent repeat. No automatic or physical printing was tested.
 - [ ] After the exact menu and groceries are approved, merge private publication and confirm production import from `main`.
 
-See [github-print-inbox.md](github-print-inbox.md), [recipe-jobs.md](recipe-jobs.md), [grocery-jobs.md](grocery-jobs.md), and [issue #19](https://github.com/dnaielfergy/daily-todo-printer/issues/19).
+See [notion-integration-setup.md](notion-integration-setup.md), [github-print-inbox.md](github-print-inbox.md), [recipe-jobs.md](recipe-jobs.md), [grocery-jobs.md](grocery-jobs.md), and [issue #19](https://github.com/dnaielfergy/daily-todo-printer/issues/19).

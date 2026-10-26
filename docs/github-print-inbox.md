@@ -1,7 +1,7 @@
 # Private GitHub recipe and grocery print inbox — Phase A transport + B1/B2 reconciliation
 
 Implementation: [issue #14](https://github.com/dnaielfergy/daily-todo-printer/issues/14).
-The **private** repository [dnaielfergy/household-print-inbox](https://github.com/dnaielfergy/household-print-inbox) is the published source of truth for **approved print jobs**. The existing household Notion recipe workspace (future ChatGPT workflow in #19) is the editable source of truth for recipes and meal plans. Local SQLite is the operational truth for accepted jobs and what the spooler attempted.
+The **private** repository identified in the Windows host's `[recipe_inbox].repo` configuration is the published source of truth for **approved print jobs**. The editable household Notion Recipes and Weekly Meals workspace (ChatGPT workflow in #19) is the editable source of truth for recipes and meal plans. Local SQLite is the operational truth for accepted jobs and what the spooler attempted.
 
 **Working → Published → Executed** is strictly one-way. Neither GitHub nor SQLite is a second recipe editor; never push SQLite files to GitHub.
 
@@ -80,11 +80,11 @@ Publisher process: prepare jobs and manifest on a branch; review changes, then m
 
 ## One-time Windows configuration
 
-1. Create a **fine-grained GitHub PAT** scoped **only** to `dnaielfergy/household-print-inbox` with **Contents: Read-only**, metadata read. Give it an expiration you can maintain. Never put it in Git, scripts, public issues or chat.
+1. Create a **fine-grained GitHub PAT** scoped **only** to `YOUR_GITHUB_USER/YOUR_PRIVATE_PRINT_INBOX` with **Contents: Read-only**, metadata read. Give it an expiration you can maintain. Never put it in Git, scripts, public issues or chat.
 2. In ignored `C:\Projects\daily-todo-printer\config.local.toml`, add:
    ```toml
    [recipe_inbox]
-   repo = "dnaielfergy/household-print-inbox"
+   repo = "YOUR_GITHUB_USER/YOUR_PRIVATE_PRINT_INBOX"
    ref = "main"
    token = "YOUR_READ_ONLY_TOKEN"
    ```
@@ -99,7 +99,7 @@ Publisher process: prepare jobs and manifest on a branch; review changes, then m
    .\.venv\Scripts\receipt-todo.exe recipe list
    ```
 
-   The sample private inbox's active `inbox.json` initially has `weeks: []`: it intentionally imports **zero** jobs until you approve and publish a week. Example files live in `examples/` and are not active. A preview fetches and validates remote data without adding print jobs. Subsequent scheduled polls fetch only the branch SHA if it has not changed; use `--refresh` to force re-validation of the same publication after repairing local state.
+   A newly initialized private inbox's active `inbox.json` may have `weeks: []`: it intentionally imports **zero** jobs until you approve and publish a week. Example files live in `examples/` and are not active. A preview fetches and validates remote data without adding print jobs. Subsequent scheduled polls fetch only the branch SHA if it has not changed; use `--refresh` to force re-validation of the same publication after repairing local state.
 5. After verifying the manual sync, run PowerShell **as Administrator**:
    ```powershell
    .\scripts\install-recipe-sync-task.ps1 -EveryMinutes 5

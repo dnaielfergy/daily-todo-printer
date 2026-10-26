@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import unittest
 
+from receipt_todo.config import load_recipe_inbox_settings
 from receipt_todo.db import (
     add_task,
     complete_task,
@@ -24,6 +25,24 @@ class CoreTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.conn.close()
         self.tmp.cleanup()
+
+    def test_private_inbox_repository_must_be_explicit(self) -> None:
+        config = Path(self.tmp.name) / "config.qa.toml"
+        config.write_text(
+            '[recipe_inbox]\ntoken = "fictional-test-token"\n',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "recipe_inbox.repo"):
+            load_recipe_inbox_settings(config)
+        config.write_text(
+            '[recipe_inbox]\ntoken = "fictional-test-token"\n'
+            'repo = "example-owner/fictional-private-inbox"\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(
+            load_recipe_inbox_settings(config).repo,
+            "example-owner/fictional-private-inbox",
+        )
 
     def test_add_complete_and_list(self) -> None:
         first = add_task(self.conn, "Call dentist")

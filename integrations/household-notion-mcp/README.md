@@ -1,6 +1,8 @@
 # Household Notion MCP — #19
 
-**Deployed on an Access-protected hostname for live acceptance; PR #23 remains a draft.** This Cloudflare Worker connects ChatGPT to the existing household Notion Recipes and Weekly Meals databases. It exposes **three read tools** and three working-state write tools gated by the `ENABLE_NOTION_WRITES=true` runtime binding. The live read/write fictional-data acceptance checks passed; the publishing approval gate remains separate.
+**Reference implementation validated through a restricted Access-protected deployment.** This Cloudflare Worker connects ChatGPT to the existing household Notion Recipes and Weekly Meals databases. It exposes **three read tools** and three working-state write tools gated by the `ENABLE_NOTION_WRITES=true` runtime binding. The live read/write fictional-data acceptance checks passed; the publishing approval gate remains separate.
+
+To reproduce the setup safely (schema, Notion integration, Access, QA and secrets), follow the [generic Notion integration setup guide](../../docs/notion-integration-setup.md). This public repository contains no deployment hostname, Notion data source IDs or credentials.
 
 The editable Notion plan and the approved GitHub print snapshots are independent. Writing a meal assignment or recipe **does not publish, print, or cancel an approved grocery/meal receipt**. Publishing requires an explicit review and approval through the private GitHub inbox workflow; see [the ChatGPT household meals playbook](../../docs/chatgpt-household-meals.md).
 
