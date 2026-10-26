@@ -61,7 +61,24 @@ function createFixture() {
       rich("Onion"), rich("0.5"), rich("each"), rich("Diced")
     ] } }
   ];
-  const state = { duplicates: [], mealMatches: [], recipePage, blocks, rows };
+  const state = { duplicates: [], mealMatches: [], recipePage, blocks, rows, extraTables: {} };
+  let nextBlockId = 30;
+  function insertBlocks(storage, additions, after) {
+    const fresh = additions.map((item) => {
+      const block = structuredClone(item);
+      block.id = id(nextBlockId++);
+      if (block.type === "table") {
+        state.extraTables[normal(block.id)] = insertBlocks([], block.table.children ?? []);
+        delete block.table.children;
+      }
+      return block;
+    });
+    const pos = after ? storage.findIndex((item) => item.id === after ||
+      normal(item.id) === normal(after)) : storage.length - 1;
+    if (after && pos < 0) throw new Error("Unknown insert anchor");
+    storage.splice(pos + 1, 0, ...fresh);
+    return fresh;
+  }
   const fakeFetch = async (url, init) => {
     const path = new URL(url).pathname;
     const method = init.method;
@@ -82,11 +99,14 @@ function createFixture() {
     if (method === "GET" && path.endsWith("/blocks/" + normal(pageId) + "/children")) {
       return Response.json({ results: state.blocks, has_more: false });
     }
-    if (method === "GET" && path.endsWith("/blocks/" + normal(id(8)) + "/children")) {
-      return Response.json({ results: state.rows, has_more: false });
+    if (method === "GET" && path.includes("/blocks/") && path.endsWith("/children")) {
+      const blockId = path.split("/")[3];
+      const tableRows = blockId === normal(id(8)) ? state.rows : state.extraTables[blockId];
+      if (tableRows) return Response.json({ results: tableRows, has_more: false });
     }
     if (method === "POST" && path.endsWith("/pages")) {
-      return Response.json(responsePage(body.parent.data_source_id, body.parent.data_source_id === recipeSource ? pageId : mealId));
+      return Response.json(responsePage(body.parent.data_source_id,
+        body.parent.data_source_id === recipeSource ? pageId : mealId));
     }
     if (method === "PATCH" && path.endsWith("/pages/" + normal(mealId))) {
       return Response.json(responsePage(mealsSource, mealId));
@@ -96,13 +116,21 @@ function createFixture() {
       state.recipePage.properties = {
         Name: { type: "title", title: props.Name.title.map((t) => ({ plain_text: t.text.content })) },
         Servings: { type: "number", number: props.Servings.number },
-        Recipe: { type: "url", url: props.Recipe.url }
+        Recipe: { type: "url", url: props.Recipe?.url ?? state.recipePage.properties.Recipe?.url ?? null }
       };
       return Response.json(state.recipePage);
     }
+    if (method === "PATCH" && path.startsWith("/v1/blocks/") && path.endsWith("/children")) {
+      const blockId = path.split("/")[3];
+      const target = blockId === normal(pageId) ? state.blocks :
+        blockId === normal(id(8)) ? state.rows : state.extraTables[blockId];
+      if (!target) throw new Error("Unexpected append destination: " + path);
+      return Response.json({ results: insertBlocks(target, body.children, body.after) });
+    }
     if (method === "PATCH" && path.startsWith("/v1/blocks/")) {
       const blockId = path.split("/")[3];
-      const block = state.rows.find((r) => normal(r.id) === blockId) ||
+      const allRows = [state.rows, ...Object.values(state.extraTables)].flat();
+      const block = allRows.find((r) => normal(r.id) === blockId) ||
         state.blocks.find((b) => normal(b.id) === blockId);
       if (block && body.table_row) {
         block.table_row.cells = body.table_row.cells.map((a) => rich(a[0].text.content));
@@ -111,6 +139,13 @@ function createFixture() {
       if (block && body.numbered_list_item) {
         block.numbered_list_item.rich_text = rich(body.numbered_list_item.rich_text[0].text.content);
         return Response.json(block);
+      }
+    }
+    if (method === "DELETE" && path.startsWith("/v1/blocks/")) {
+      const blockId = path.split("/")[3];
+      for (const storage of [state.blocks, state.rows, ...Object.values(state.extraTables)]) {
+        const index = storage.findIndex((v) => normal(v.id) === blockId);
+        if (index >= 0) return Response.json(storage.splice(index, 1)[0]);
       }
     }
     throw new Error("Unexpected request " + method + " " + path);
@@ -153,6 +188,7 @@ test("create recipe uses allowlisted data source, no other Notion URL", async ()
   const post = fixture.calls.find((call) => call.method === "POST" && call.path === "/v1/pages");
   assert.equal(post.body.parent.data_source_id, normal(id(1)));
   assert.equal(post.body.children[1].table.children.length, 3);
+  assert.equal(post.body.template, undefined, "API-created recipes use explicit native blocks, not asynchronous default templates");
   assert(fixture.calls.every((call) => new URL(call.url).host === "api.notion.com"));
   assert(fixture.calls.every((call) => call.init.headers["Notion-Version"] === "2025-09-03"));
 });
@@ -201,6 +237,98 @@ test("same-count recipe edit updates only managed rows/steps and reads back", as
   const rowPatches = fixture.calls.filter((call) =>
     call.method === "PATCH" && call.path.includes("/blocks/"));
   assert.equal(rowPatches.length, 3);
+});
+
+test("populate a link-only recipe without destroying existing source notes", async () => {
+  const fixture = createFixture();
+  fixture.state.recipePage.properties.Servings.number = null;
+  fixture.state.blocks = [
+    { id: id(20), type: "paragraph", paragraph: { rich_text: rich("Human source notes: preserve me.") } }
+  ];
+  const result = await createNotionWriter(env, fixture.fakeFetch).saveRecipe({
+    ...payload(), recipe_id: fixture.pageId,
+    expected_last_edited_time: "2026-10-25T20:00:00.000Z"
+  });
+  assert.equal(result.action, "updated");
+  assert.equal(fixture.state.blocks[0].paragraph.rich_text[0].plain_text,
+    "Human source notes: preserve me.");
+  assert.equal(fixture.state.blocks.filter((b) => b.type === "table").length, 1);
+  assert.equal(fixture.state.blocks.filter((b) => b.type === "heading_2").length, 2);
+  const firstTable = fixture.state.blocks.find((b) => b.type === "table");
+  assert.equal(fixture.state.extraTables[normal(firstTable.id)].length, 3);
+  const edits = fixture.calls.filter((c) => c.method === "PATCH" && c.path.endsWith("/children"));
+  assert.equal(edits.length, 1, "link-only recipe should receive one complete set of blocks");
+});
+
+test("populate a default blank template in place, preserving Notes and headings", async () => {
+  const fixture = createFixture();
+  fixture.state.blocks = [
+    { id: id(7), type: "heading_2", heading_2: { rich_text: rich("Ingredients") } },
+    { id: id(8), type: "table", table: { table_width: 4 } },
+    { id: id(9), type: "heading_2", heading_2: { rich_text: rich("Instructions") } },
+    { id: id(10), type: "numbered_list_item", numbered_list_item: { rich_text: rich("Add first instruction here.") } },
+    { id: id(20), type: "heading_2", heading_2: { rich_text: rich("Notes") } },
+    { id: id(21), type: "paragraph", paragraph: { rich_text: rich("Optional") } }
+  ];
+  fixture.state.rows = [
+    { id: id(12), type: "table_row", table_row: { cells: [
+      rich("Ingredient"), rich("Quantity"), rich("Unit"), rich("Notes")
+    ] } },
+    { id: id(13), type: "table_row", table_row: { cells: [
+      rich(""), rich(""), rich(""), rich("")
+    ] } }
+  ];
+  const result = await createNotionWriter(env, fixture.fakeFetch).saveRecipe({
+    ...payload(), recipe_id: fixture.pageId,
+    expected_last_edited_time: "2026-10-25T20:00:00.000Z"
+  });
+  assert.equal(result.action, "updated");
+  assert.equal(fixture.state.blocks.filter((b) => b.type === "table").length, 1);
+  assert.equal(fixture.state.blocks.filter((b) => b.type === "heading_2").length, 3);
+  assert.equal(fixture.state.blocks.find((b) => b.id === id(21)).paragraph.rich_text[0].plain_text,
+    "Optional");
+  assert.equal(fixture.state.rows[1].table_row.cells[0][0].plain_text, "Coconut aminos");
+  assert.equal(fixture.state.rows.length, 3);
+  assert.equal(fixture.state.blocks.find((b) => b.id === id(10)).numbered_list_item.rich_text[0].plain_text,
+    "Cook onion.");
+});
+
+test("populate a header-only template with missing table and no instructions", async () => {
+  const fixture = createFixture();
+  fixture.state.blocks = [
+    { id: id(7), type: "heading_2", heading_2: { rich_text: rich("Ingredients") } },
+    { id: id(9), type: "heading_2", heading_2: { rich_text: rich("Instructions") } },
+    { id: id(21), type: "paragraph", paragraph: { rich_text: rich("Keep manual notes.") } }
+  ];
+  const result = await createNotionWriter(env, fixture.fakeFetch).saveRecipe({
+    ...payload(), recipe_id: fixture.pageId,
+    expected_last_edited_time: "2026-10-25T20:00:00.000Z"
+  });
+  assert.equal(result.action, "updated");
+  const tablePos = fixture.state.blocks.findIndex((b) => b.type === "table");
+  const instructionPos = fixture.state.blocks.findIndex((b) => b.type === "numbered_list_item");
+  assert.equal(tablePos, 1);
+  assert.equal(instructionPos, 3);
+  assert.equal(fixture.state.blocks.at(-1).paragraph.rich_text[0].plain_text, "Keep manual notes.");
+});
+
+test("reject ambiguous recipe headings or tables without mutating content", async () => {
+  for (const mutate of [
+    (fixture) => fixture.state.blocks.push({
+      id: id(25), type: "heading_2", heading_2: { rich_text: rich("Ingredients") }
+    }),
+    (fixture) => { fixture.state.blocks[1].table.table_width = 5; },
+    (fixture) => { fixture.state.blocks.splice(2, 1); }
+  ]) {
+    const fixture = createFixture();
+    mutate(fixture);
+    await assert.rejects(() => createNotionWriter(env, fixture.fakeFetch).saveRecipe({
+      ...payload(), recipe_id: fixture.pageId,
+      expected_last_edited_time: "2026-10-25T20:00:00.000Z"
+    }), /manual review required/);
+    assert(fixture.calls.every((c) => c.method === "GET"),
+      "Ambiguous content must not be partially rewritten");
+  }
 });
 
 test("weekly meal saves only after recipe is complete and checks slot conflicts", async () => {
