@@ -35,7 +35,7 @@ export function validateRecipe(payload) {
   const name = text(payload.name, 160, "recipe name");
   if (typeof payload.servings !== "number" || !Number.isFinite(payload.servings) ||
       payload.servings <= 0 || payload.servings > 100) throw new Error("Invalid recipe servings");
-  let source_url = null;
+  let source_url = payload.source_url === undefined ? undefined : null;
   if (payload.source_url !== undefined && payload.source_url !== null && payload.source_url !== "") {
     source_url = text(payload.source_url, 1000, "recipe source URL");
     let url;
@@ -55,7 +55,24 @@ export function validateRecipe(payload) {
   if (!Array.isArray(payload.instructions) || !payload.instructions.length ||
       payload.instructions.length > 40) throw new Error("Recipe must have 1-40 instructions");
   const instructions = payload.instructions.map((step) => text(step, 1000, "instruction"));
-  return { name, servings: payload.servings, source_url, ingredients, instructions };
+  function labels(name, values) {
+    if (values === undefined) return undefined;
+    if (!Array.isArray(values) || values.length > 12) throw new Error("Invalid " + name);
+    const cleaned = values.map((v) => text(v, 80, name));
+    if (new Set(cleaned.map((v) => v.toLowerCase())).size !== cleaned.length) {
+      throw new Error("Duplicate " + name);
+    }
+    return cleaned;
+  }
+  const meal_types = labels("recipe Meal Type", payload.meal_types);
+  const diet = labels("recipe Diet", payload.diet);
+  const best_for = labels("recipe Best For", payload.best_for);
+  const notes = payload.notes === undefined ? undefined :
+    text(payload.notes, 1800, "recipe Notes", true);
+  return {
+    name, servings: payload.servings, source_url, ingredients, instructions,
+    meal_types, diet, best_for, notes
+  };
 }
 
 export function recipeBlocks(recipe) {
@@ -103,7 +120,17 @@ function recipeProperties(recipe) {
   return {
     Name: { title: rich(recipe.name) },
     Servings: { number: recipe.servings },
-    Recipe: { url: recipe.source_url }
+    ...(recipe.source_url !== undefined ? { Recipe: { url: recipe.source_url } } : {}),
+    ...(recipe.meal_types !== undefined ? {
+      "Meal Type": { multi_select: recipe.meal_types.map((name) => ({ name })) }
+    } : {}),
+    ...(recipe.diet !== undefined ? {
+      Diet: { multi_select: recipe.diet.map((name) => ({ name })) }
+    } : {}),
+    ...(recipe.best_for !== undefined ? {
+      "Best For": { multi_select: recipe.best_for.map((name) => ({ name })) }
+    } : {}),
+    ...(recipe.notes !== undefined ? { Notes: { rich_text: recipe.notes ? rich(recipe.notes) : [] } } : {})
   };
 }
 function mealProperties(meal) {
