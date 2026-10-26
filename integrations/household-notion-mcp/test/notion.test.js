@@ -84,6 +84,12 @@ test("malformed tables are rejected rather than guessed", () => {
   assert.throws(() => parseRecipeBlocks(fixtureBlocks(), bad), /Incomplete/);
 });
 
+test("default template instruction placeholder is not print-ready", () => {
+  const blocks = fixtureBlocks();
+  blocks.at(-1).numbered_list_item.rich_text = rich("Add first instruction here.");
+  assert.throws(() => parseRecipeBlocks(blocks, fixtureRows()), /placeholder instruction/);
+});
+
 test("weekly meal relation and printability are deterministic", () => {
   assert.deepEqual(weeklyMeal(pages.meal), {
     id: uuid(4), date: "2026-11-02", meal_type: "Dinner",
