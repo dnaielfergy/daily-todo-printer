@@ -59,6 +59,7 @@ function createServer(env) {
   // Cloudflare Access authentication and Notion integration permissions.
   if (env.ENABLE_NOTION_WRITES === "true") {
     const writer = createNotionWriter(env);
+    const notionId = z.string().regex(/^(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/i);
     const ingredient = z.object({
       ingredient: z.string().min(1).max(160),
       quantity: z.string().min(1).max(50),
@@ -69,7 +70,7 @@ function createServer(env) {
       "save_recipe",
       "Create or revise one household Notion recipe with the approved four-column ingredient table and numbered steps. To revise, supply recipe_id and the last_edited_time from get_recipe; the full ingredient/instruction lists replace the prior managed content. This modifies working Notion only—NEVER publishes to GitHub or prints.",
       {
-        recipe_id: z.string().uuid().optional(),
+        recipe_id: notionId.optional(),
         expected_last_edited_time: z.string().max(50).optional(),
         name: z.string().min(1).max(160),
         servings: z.number().positive().max(100),
@@ -87,11 +88,11 @@ function createServer(env) {
       "save_weekly_meal",
       "Create or revise one dated household Weekly Meals entry, linking exactly one complete recipe. To revise, supply meal_id and last_edited_time from list_weekly_meals. Duplicate date/type slots are rejected. Writes working Notion only—not the approved private GitHub print inbox.",
       {
-        meal_id: z.string().uuid().optional(),
+        meal_id: notionId.optional(),
         expected_last_edited_time: z.string().max(50).optional(),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         meal_type: z.enum(["Breakfast", "Lunch", "Dinner"]),
-        recipe_id: z.string().uuid(),
+        recipe_id: notionId,
         servings: z.number().positive().max(100).nullable().optional()
       },
       (args) => writer.saveWeeklyMeal(args)
@@ -100,7 +101,7 @@ function createServer(env) {
       "remove_weekly_meal",
       "Archive one authorized Weekly Meals assignment after checking its last_edited_time. Does not delete recipes, modify GitHub publication, or print anything.",
       {
-        meal_id: z.string().uuid(),
+        meal_id: notionId,
         expected_last_edited_time: z.string().min(1).max(50)
       },
       (args) => writer.removeWeeklyMeal(args)
