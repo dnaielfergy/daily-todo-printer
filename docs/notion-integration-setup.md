@@ -40,12 +40,12 @@ For manual authoring, create a **default database template** called `Recipe - St
 | `Meal` | Title | Human-readable assignment title |
 | `Date` | Date | **Canonical scheduling date** |
 | `Meal Type` | Select | `Breakfast`, `Lunch`, or `Dinner` |
-| `Meal Link` | Relation to Recipes | Exactly **one** linked recipe per entry (capital **L**) |
+| `Meal Link` | Relation to Recipes | **One or more** linked recipes per entry (capital **L**) |
 | `Servings` | Number | Optional override; otherwise use the recipe's base Servings |
 | `Recipe` | Rollup, if present | **Read-only display** through `Meal Link`; do not write this |
 | `Day` | Date, if present | Legacy/additional date; **ignored** by the MCP |
 
-The writer enforces one weekly assignment per `Date` + `Meal Type` slot. Breakfast may be planned but the current print-job contract emits only lunch/dinner receipts.
+The writer accepts `recipe_ids` (array of one or more unique IDs) and verifies every linked recipe. The default `Servings` target applies to each linked recipe; per-recipe serving overrides are not yet modeled. The writer enforces one weekly assignment per `Date` + `Meal Type` slot. Breakfast may be planned but the current print-job contract emits only lunch/dinner receipts.
 
 ## 2. Connect a narrowly scoped Notion integration
 

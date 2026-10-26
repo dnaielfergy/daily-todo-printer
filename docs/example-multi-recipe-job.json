@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "job_id": "2026-11-03-dinner-two-recipes-v1",
+  "date": "2026-11-03",
+  "meal": "dinner",
+  "source": {
+    "type": "manual",
+    "reference": "fictional-multi-recipe-test"
+  },
+  "recipes": [
+    {
+      "title": "Test veggie burgers",
+      "servings": 2,
+      "ingredients": [
+        {
+          "name": "veggie patties",
+          "amount": "2 each"
+        },
+        {
+          "name": "burger buns",
+          "amount": "2 each"
+        }
+      ],
+      "steps": [
+        "Cook patties according to their package instructions.",
+        "Place patties on buns."
+      ]
+    },
+    {
+      "title": "Test roasted potatoes",
+      "servings": 2,
+      "ingredients": [
+        {
+          "name": "potatoes",
+          "amount": "400 g"
+        },
+        {
+          "name": "olive oil",
+          "amount": "1 tbsp"
+        }
+      ],
+      "steps": [
+        "Cut potatoes into wedges.",
+        "Toss with oil and roast until cooked."
+      ]
+    }
+  ]
+}

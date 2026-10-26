@@ -56,8 +56,8 @@ def recipe():
         "job_id": "monday-lunch",
         "date": "2026-10-26",
         "meal": "lunch",
-        "recipe": {"title": "Rice bowls", "ingredients": [{"name": "Rice", "amount": "1 cup"}],
-                   "steps": ["Cook rice."]},
+        "recipes": [{"title": "Rice bowls", "ingredients": [{"name": "Rice", "amount": "1 cup"}],
+                   "steps": ["Cook rice."]}],
     }
 
 

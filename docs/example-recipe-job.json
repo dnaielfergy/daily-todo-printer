@@ -7,7 +7,7 @@
     "type": "manual",
     "reference": "example"
   },
-  "recipe": {
+  "recipes": [{
     "title": "Miso Salmon Bowls",
     "servings": 2,
     "prep_minutes": 10,
@@ -31,5 +31,5 @@
       "Coat salmon and cook until done.",
       "Serve over warm rice."
     ]
-  }
+  }]
 }

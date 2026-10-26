@@ -93,13 +93,18 @@ test("default template instruction placeholder is not print-ready", () => {
 test("weekly meal relation and printability are deterministic", () => {
   assert.deepEqual(weeklyMeal(pages.meal), {
     id: uuid(4), date: "2026-11-02", meal_type: "Dinner",
-    recipe_id: uuid(3), servings: 2, printable: true
+    recipe_ids: [uuid(3)], servings: 2, printable: true
   });
+  const combo = structuredClone(pages.meal);
+  combo.properties["Meal Link"].relation.push({ id: uuid(5) });
+  assert.deepEqual(weeklyMeal(combo).recipe_ids, [uuid(3), uuid(5)]);
+  combo.properties["Meal Link"].relation.push({ id: uuid(3) });
+  assert.throws(() => weeklyMeal(combo), /unique Meal Links/);
   const breakfast = structuredClone(pages.meal);
   breakfast.properties["Meal Type"].select.name = "Breakfast";
   assert.equal(weeklyMeal(breakfast).printable, false);
   breakfast.properties["Meal Link"].relation = [];
-  assert.throws(() => weeklyMeal(breakfast), /one Meal Link/);
+  assert.throws(() => weeklyMeal(breakfast), /one or more unique Meal Links/);
 });
 
 test("week start must be a real Monday", () => {

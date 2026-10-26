@@ -17,7 +17,7 @@ Recipe page content:
 
 Quantities are explicit text strings, such as "0.25", "2", or "to taste". Grocery calculations, incompatible-unit checks, and any ingredient normalization belong in ChatGPT, *not* in the Worker or printer.
 
-Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast/Lunch/Dinner), Meal Link (relation to exactly one Recipes page), optional Servings (number). The existing Recipe rollup is display-only. If the database also has a `Day` date property, the MCP ignores it and uses `Date` for scheduling. Breakfast is valid for planning but not printable with the current lunch/dinner snapshot contract.
+Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast/Lunch/Dinner), Meal Link (relation to one or more Recipes pages), optional Servings (number). The existing Recipe rollup is display-only. If the database also has a `Day` date property, the MCP ignores it and uses `Date` for scheduling. Breakfast is valid for planning but not printable with the current lunch/dinner snapshot contract.
 
 ## MCP tools
 
@@ -25,9 +25,9 @@ Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast
 | --- | --- |
 | list_recipes | Read recipe metadata, preparation status and edit timestamps |
 | get_recipe | Read and validate a recipe's simple ingredient table and numbered steps |
-| list_weekly_meals | Read dated weekly assignments, serving overrides, recipe IDs and edit timestamps |
+| list_weekly_meals | Read dated weekly assignments, serving overrides, arrays of recipe IDs and edit timestamps |
 | save_recipe | **Writes enabled only:** create new, populate link-only/blank template, or revise structured recipe |
-| save_weekly_meal | **Writes enabled only:** create or revise a dated recipe assignment; duplicate slots rejected |
+| save_weekly_meal | **Writes enabled only:** create or revise a dated recipe assignment; duplicate slots and repeated recipe IDs rejected |
 | remove_weekly_meal | **Writes enabled only:** archive one authorized dated assignment |
 
 **One save_recipe tool, three operations:**

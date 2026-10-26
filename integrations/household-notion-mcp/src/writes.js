@@ -108,12 +108,16 @@ export function validateMeal(payload) {
   if (!["Breakfast", "Lunch", "Dinner"].includes(meal_type)) {
     throw new Error("Invalid meal type");
   }
-  const recipe_id = assertId(payload.recipe_id);
+  if (!Array.isArray(payload.recipe_ids) || !payload.recipe_ids.length || payload.recipe_ids.length > 12) {
+    throw new Error("Meal must link 1-12 recipes");
+  }
+  const recipe_ids = payload.recipe_ids.map(assertId);
+  if (new Set(recipe_ids).size !== recipe_ids.length) throw new Error("Duplicate linked recipe");
   const servings = payload.servings ?? null;
   if (servings !== null && (!Number.isFinite(servings) || servings <= 0 || servings > 100)) {
     throw new Error("Invalid meal servings");
   }
-  return { date, meal_type, recipe_id, servings };
+  return { date, meal_type, recipe_ids, servings };
 }
 
 function recipeProperties(recipe) {
@@ -138,7 +142,7 @@ function mealProperties(meal, title) {
     ...(title !== undefined ? { Meal: { title: rich(title) } } : {}),
     Date: { date: { start: meal.date } },
     "Meal Type": { select: { name: meal.meal_type } },
-    "Meal Link": { relation: [{ id: meal.recipe_id }] },
+    "Meal Link": { relation: meal.recipe_ids.map((id) => ({ id })) },
     Servings: { number: meal.servings }
   };
 }
@@ -379,7 +383,7 @@ export function createNotionWriter(env, transport = fetch) {
     async saveWeeklyMeal(payload) {
       const meal = validateMeal(payload);
       // The selected recipe must be in scope AND fully prepared for grocery planning.
-      const sourceRecipe = await reader.getRecipe(meal.recipe_id);
+      const sourceRecipes = await Promise.all(meal.recipe_ids.map((id) => reader.getRecipe(id)));
       const suppliedTitle = payload.title === undefined ? undefined :
         text(payload.title, 160, "meal title");
       const matching = await matchingMeals(meal);
@@ -403,7 +407,7 @@ export function createNotionWriter(env, transport = fetch) {
       try {
         page = await call("POST", "pages", {
           parent: { type: "data_source_id", data_source_id: meals },
-          properties: mealProperties(meal, suppliedTitle ?? sourceRecipe.name)
+          properties: mealProperties(meal, suppliedTitle ?? sourceRecipes.map((recipe) => recipe.name).join(" + ").slice(0, 160))
         });
       } catch (error) {
         // Only inspect allowlisted schema metadata on a failed write; never

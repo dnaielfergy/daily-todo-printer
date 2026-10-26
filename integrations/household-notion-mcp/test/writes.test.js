@@ -171,8 +171,8 @@ test("invalid ingredient, unsafe URL and meal date fail before network calls", (
   ] }), /quantity/);
   assert.throws(() => validateRecipe({ ...payload(), source_url: "file:///private/key" }), /HTTP/);
   assert.throws(() => validateRecipe({ ...payload(), name: "Evil\u0000" }), /recipe name/);
-  assert.throws(() => validateMeal({ date: "2026-02-30", meal_type: "Dinner", recipe_id: id(3) }), /date/);
-  assert.throws(() => validateMeal({ date: "2026-11-02", meal_type: "Snack", recipe_id: id(3) }), /type/);
+  assert.throws(() => validateMeal({ date: "2026-02-30", meal_type: "Dinner", recipe_ids: [id(3)] }), /date/);
+  assert.throws(() => validateMeal({ date: "2026-11-02", meal_type: "Snack", recipe_ids: [id(3)] }), /type/);
 });
 
 test("write operations are disabled by default", () => {
@@ -363,7 +363,7 @@ test("weekly meal saves only after recipe is complete and checks slot conflicts"
   const fixture = createFixture();
   const writer = createNotionWriter(env, fixture.fakeFetch);
   const saved = await writer.saveWeeklyMeal({
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId,
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId],
     servings: 2
   });
   assert.equal(saved.action, "created");
@@ -371,9 +371,12 @@ test("weekly meal saves only after recipe is complete and checks slot conflicts"
   assert.equal(post.body.parent.data_source_id, normal(id(2)));
   assert.equal(post.body.properties.Meal.title[0].text.content, "Fictional Bowl");
   assert.deepEqual(post.body.properties["Meal Link"].relation, [{ id: normal(id(3)) }]);
+  const multi = validateMeal({ date: "2026-11-02", meal_type: "Dinner", recipe_ids: [id(3), id(5)] });
+  assert.equal(multi.recipe_ids.length, 2);
+  assert.throws(() => validateMeal({ date: "2026-11-02", meal_type: "Dinner", recipe_ids: [id(3), id(3)] }), /Duplicate/);
   fixture.state.mealMatches = [{ id: fixture.mealId }];
   await assert.rejects(() => writer.saveWeeklyMeal({
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId]
   }), /already exists/);
 });
 
@@ -383,13 +386,13 @@ test("weekly meal updates require fresh edit token and matching meal source", as
   await assert.rejects(() => writer.saveWeeklyMeal({
     meal_id: fixture.mealId,
     expected_last_edited_time: "2026-10-24T20:00:00.000Z",
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId]
   }), /changed since/);
   assert.equal(fixture.calls.some((call) => call.method === "PATCH"), false);
   const updated = await writer.saveWeeklyMeal({
     meal_id: fixture.mealId,
     expected_last_edited_time: "2026-10-25T20:00:00.000Z",
-    date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
+    date: "2026-11-02", meal_type: "Dinner", recipe_ids: [fixture.pageId]
   });
   assert.equal(updated.action, "updated");
   const edit = fixture.calls.find((c) => c.method === "PATCH");
