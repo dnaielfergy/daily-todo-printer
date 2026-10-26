@@ -138,7 +138,7 @@ function mealProperties(meal, title) {
     ...(title !== undefined ? { Meal: { title: rich(title) } } : {}),
     Date: { date: { start: meal.date } },
     "Meal Type": { select: { name: meal.meal_type } },
-    "Meal link": { relation: [{ id: meal.recipe_id }] },
+    "Meal Link": { relation: [{ id: meal.recipe_id }] },
     Servings: { number: meal.servings }
   };
 }
@@ -371,7 +371,7 @@ export function createNotionWriter(env, transport = fetch) {
           const schema = await call("GET", "data_sources/" + meals);
           const expected = {
             Meal: "title", Date: "date", "Meal Type": "select",
-            "Meal link": "relation", Servings: "number"
+            "Meal Link": "relation", Servings: "number"
           };
           const mismatches = Object.entries(expected)
             .filter(([name, kind]) => schema.properties?.[name]?.type !== kind)
