@@ -93,7 +93,7 @@ function createServer(env) {
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         meal_type: z.enum(["Breakfast", "Lunch", "Dinner"]),
         title: z.string().min(1).max(160).optional(),
-        recipe_ids: z.array(notionId).min(1).max(50),
+        recipe_ids: z.array(notionId).min(1).max(12),
         servings: z.number().positive().max(100).nullable().optional()
       },
       (args) => writer.saveWeeklyMeal(args)
