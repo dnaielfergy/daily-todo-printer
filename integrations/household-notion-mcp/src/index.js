@@ -46,7 +46,7 @@ function createServer(env) {
 
   register(
     "list_weekly_meals",
-    "Read working Notion dated breakfast, lunch and dinner assignments; use household-meal-planning Skill for cross-recipe scaling and private policy-gated groceries. for an ISO Monday-start week. Breakfast is planning-only: v1 printable receipts support lunch/dinner.",
+    "Read working Notion dated breakfast, lunch and dinner assignments; use household-meal-planning Skill for cross-recipe scaling and private policy-gated groceries. Supply an ISO Monday-start week. Breakfast is planning-only: v1 printable receipts support lunch/dinner.",
     {
       week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       cursor: z.string().min(1).max(300).optional()
