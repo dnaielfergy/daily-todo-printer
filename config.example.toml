@@ -21,6 +21,6 @@ max_items = 10
 # Private GitHub inbox for approved print snapshots. The host needs Contents read only.
 # Keep the token in ignored config.local.toml or the SYSTEM process environment.
 [recipe_inbox]
-repo = "dnaielfergy/household-print-inbox"
+repo = "YOUR_GITHUB_USER/YOUR_PRIVATE_PRINT_INBOX"
 ref = "main"
 # token = "READ_ONLY_GITHUB_TOKEN"
