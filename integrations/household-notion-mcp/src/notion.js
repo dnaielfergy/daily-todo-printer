@@ -72,7 +72,8 @@ export function parseRecipeBlocks(blocks, tableRows) {
     }
     if (section === "instructions" && block.type === "numbered_list_item") {
       const text = plainText(block.numbered_list_item?.rich_text);
-      if (!text || text.length > 1000 || /^add first instruction here\\.?$/i.test(text)) {
+      if (!text || text.length > 1000 ||
+          ["add first instruction here.", "add first instruction here"].includes(text.toLowerCase())) {
         throw new Error("Invalid or placeholder instruction step");
       }
       instructions.push(text);
