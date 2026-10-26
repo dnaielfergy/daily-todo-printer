@@ -24,11 +24,17 @@ Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast
 | list_recipes | Read recipe metadata, preparation status and edit timestamps |
 | get_recipe | Read and validate a recipe's simple ingredient table and numbered steps |
 | list_weekly_meals | Read dated weekly assignments, serving overrides, recipe IDs and edit timestamps |
-| save_recipe | **Writes enabled only:** create or revise complete recipe contents and selected metadata |
+| save_recipe | **Writes enabled only:** create new, populate link-only/blank template, or revise structured recipe |
 | save_weekly_meal | **Writes enabled only:** create or revise a dated recipe assignment; duplicate slots rejected |
 | remove_weekly_meal | **Writes enabled only:** archive one authorized dated assignment |
 
-For a revision, supply the page ID and the **expected last_edited_time** returned by the read tool, plus the complete intended content. This refuses most stale overwrites and guards page identity. Recipe edits update native ingredient rows and numbered instructions in place and preserve manually authored notes elsewhere on the page.
+**One save_recipe tool, three operations:**
+
+1. **Create** (no `recipe_id`): creates a new recipe directly in the allowlisted Recipes data source with the approved native 4-column table, headings and numbered steps. Notion's API does **not** apply a UI database's default template automatically; sending the approved native `children` instead produces complete content immediately. Applying a default template explicitly would be asynchronous and cannot be combined with `children`.
+2. **Populate** (existing `recipe_id`): can fill a link-only page without headings, or a blank/default-template skeleton with matching `Ingredients` and `Instructions` headings, a header-only/blank 4-column table and/or instruction placeholders. Reuses existing table/headings when present; preserves unrelated source links and Notes.
+3. **Revise** (existing `recipe_id`): replaces managed ingredient rows and numbered instructions in place, including changing their counts; preserves unrelated page blocks and omitted optional properties.
+
+For **both** existing-page operations, supply the exact recipe ID and **expected_last_edited_time** returned by `list_recipes` (incomplete pages cannot be opened with `get_recipe`) or `get_recipe` (complete pages), and supply the full intended ingredient and instruction lists. Duplicate headings, out-of-order sections, tables with the wrong number of columns and half-created layouts are rejected for manual review. The timestamp refuses most stale overwrites and guards page identity.
 
 Notion block writes are **not transactional**. If an update fails halfway through, inspect the recipe and repair it before retrying. The writer verifies recipe edits with a complete read-back; an edit timestamp alone is not a database-level concurrency lock.
 
@@ -65,7 +71,7 @@ The third command is a **Wrangler dry-run bundle check**, not a deployment. Test
 1. Create a dedicated household Notion integration and connect **only Recipes and Weekly Meals**; capture each **data source ID**, not its database/view URL. Validate exact live property types/names before deployment.
 2. Configure a Cloudflare Zero Trust Access-protected hostname and test OAuth from **the actual ChatGPT workspace**.
 3. With writes disabled, verify that the only three available MCP tools are read-only. Read back the approved egg-roll-bowl recipe containing coconut aminos and its four-column ingredient table, numbered steps, and servings.
-4. Enable ENABLE_NOTION_WRITES=true only when the connection and exact schema are verified. Use a **fictional recipe and meal** for first write tests, including recipe revision, serving override, duplicate-slot denial, and meal archive. Verify every result via read-back and confirm out-of-scope IDs are rejected.
+4. Enable ENABLE_NOTION_WRITES=true only when the connection and exact schema are verified. Use **fictional recipes and meals** for first write tests, including new recipe creation, blank-template population, link-only conversion, recipe revision, serving override, duplicate-slot denial and meal archive. Synthetic tests cover template/link-only conversions until a disposable blank household page is available for live testing. Verify every result via read-back and confirm out-of-scope IDs are rejected.
 5. Test wrong-user, expired, or revoked Access tokens and turning the write switch back off. Use Notion page history to recover from any interrupted multi-block update.
 6. In a separate #19 phase, add the ChatGPT **explicit human approval → private GitHub snapshot publication** workflow. Do not enable automatic printing until #20.
 
