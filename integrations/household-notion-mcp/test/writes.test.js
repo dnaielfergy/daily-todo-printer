@@ -331,6 +331,34 @@ test("reject ambiguous recipe headings or tables without mutating content", asyn
   }
 });
 
+test("revise a structured recipe with growing and shrinking managed blocks", async () => {
+  const fixture = createFixture();
+  const writer = createNotionWriter(env, fixture.fakeFetch);
+  const ref = {
+    recipe_id: fixture.pageId,
+    expected_last_edited_time: "2026-10-25T20:00:00.000Z"
+  };
+  const expanded = await writer.saveRecipe({
+    ...payload(), ...ref,
+    ingredients: [...payload().ingredients, {
+      ingredient: "Synthetic spinach", quantity: "1", unit: "cup", notes: ""
+    }],
+    instructions: [...payload().instructions, "Serve with synthetic spinach."]
+  });
+  assert.equal(expanded.action, "updated");
+  assert.equal(fixture.state.rows.length, 4); // header plus 3 ingredient rows
+  assert.equal(fixture.state.blocks.filter((b) => b.type === "numbered_list_item").length, 3);
+  const shrunk = await writer.saveRecipe({
+    ...payload(), ...ref,
+    ingredients: [payload().ingredients[0]],
+    instructions: [payload().instructions[0]]
+  });
+  assert.equal(shrunk.action, "updated");
+  assert.equal(fixture.state.rows.length, 2); // header plus only one ingredient
+  assert.equal(fixture.state.blocks.filter((b) => b.type === "numbered_list_item").length, 1);
+  assert(fixture.calls.filter((c) => c.method === "DELETE").length >= 4);
+});
+
 test("weekly meal saves only after recipe is complete and checks slot conflicts", async () => {
   const fixture = createFixture();
   const writer = createNotionWriter(env, fixture.fakeFetch);
