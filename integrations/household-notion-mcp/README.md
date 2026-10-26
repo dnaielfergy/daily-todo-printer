@@ -15,7 +15,7 @@ Recipe page content:
 
 Quantities are explicit text strings, such as "0.25", "2", or "to taste". Grocery calculations, incompatible-unit checks, and any ingredient normalization belong in ChatGPT, *not* in the Worker or printer.
 
-Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast/Lunch/Dinner), Meal link (relation to exactly one Recipes page), optional Servings (number). The existing Recipe rollup is display-only. Breakfast is valid for planning but not printable with the current lunch/dinner snapshot contract.
+Weekly Meals properties: Meal (title), Date (date), Meal Type (select: Breakfast/Lunch/Dinner), Meal Link (relation to exactly one Recipes page), optional Servings (number). The existing Recipe rollup is display-only. If the database also has a `Day` date property, the MCP ignores it and uses `Date` for scheduling. Breakfast is valid for planning but not printable with the current lunch/dinner snapshot contract.
 
 ## MCP tools
 
