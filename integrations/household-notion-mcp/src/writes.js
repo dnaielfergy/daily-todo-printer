@@ -1,6 +1,6 @@
 // Controlled working-state writes. Never writes GitHub, publishes a receipt, or calls the printer.
 // All page IDs are checked against the two explicitly configured household data sources.
-import { assertId, createNotion, parseRecipeBlocks, weekDates } from "./notion.js";
+import { assertId, createNotion, parseRecipeBlocks } from "./notion.js";
 
 const VERSION = "2025-09-03";
 const ingredientHeader = ["Ingredient", "Quantity", "Unit", "Notes"];
@@ -205,6 +205,7 @@ export function createNotionWriter(env, transport = fetch) {
 
   async function requirePage(pageId, sourceId, expectedTime) {
     const page = await call("GET", "pages/" + assertId(pageId));
+    if (page.archived || page.in_trash) throw new Error("Cannot edit an archived Notion page");
     if (!page.parent?.data_source_id ||
         assertId(page.parent.data_source_id) !== sourceId) {
       throw new Error("Page is outside the allowed household data source");
