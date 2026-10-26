@@ -1,6 +1,6 @@
 # Historical household MCP operational playbook (superseded by packaged Skill) (#19)
 
-**Canonical workflow:** [household-meal-planning Skill](skills/household-meal-planning/SKILL.md). This document preserves the earlier detailed operational acceptance notes; follow the Skill for current policy retrieval and approval gates.
+**Canonical workflow:** [household-meal-planning Skill](../skills/household-meal-planning/SKILL.md). This document preserves the earlier detailed operational acceptance notes; follow the Skill for current policy retrieval and approval gates.
 
 **Purpose:** Use the household-specific MCP to maintain Notion Recipes and Weekly Meals, then prepare **reviewed immutable print snapshots** in the private GitHub inbox. This is an agent-facing operational checklist and household user guide. It does not authorize publishing by itself.
 
