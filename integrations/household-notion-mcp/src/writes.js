@@ -133,9 +133,9 @@ function recipeProperties(recipe) {
     ...(recipe.notes !== undefined ? { Notes: { rich_text: recipe.notes ? rich(recipe.notes) : [] } } : {})
   };
 }
-function mealProperties(meal) {
+function mealProperties(meal, title) {
   return {
-    Meal: { title: rich(meal.meal_type + " — " + meal.date) },
+    ...(title !== undefined ? { Meal: { title: rich(title) } } : {}),
     Date: { date: { start: meal.date } },
     "Meal Type": { select: { name: meal.meal_type } },
     "Meal link": { relation: [{ id: meal.recipe_id }] },
@@ -333,7 +333,9 @@ export function createNotionWriter(env, transport = fetch) {
     async saveWeeklyMeal(payload) {
       const meal = validateMeal(payload);
       // The selected recipe must be in scope AND fully prepared for grocery planning.
-      await reader.getRecipe(meal.recipe_id);
+      const sourceRecipe = await reader.getRecipe(meal.recipe_id);
+      const suppliedTitle = payload.title === undefined ? undefined :
+        text(payload.title, 160, "meal title");
       const matching = await matchingMeals(meal);
       let page;
       if (payload.meal_id) {
@@ -344,7 +346,8 @@ export function createNotionWriter(env, transport = fetch) {
           throw new Error("Another assignment already occupies this meal slot");
         }
         const updated = await call("PATCH", "pages/" + assertId(page.id), {
-          properties: mealProperties(meal)
+          // Omission preserves the human-authored Meal title on existing entries.
+          properties: mealProperties(meal, suppliedTitle)
         });
         return { action: "updated", meal_id: updated.id, url: updated.url };
       }
@@ -353,7 +356,7 @@ export function createNotionWriter(env, transport = fetch) {
       }
       page = await call("POST", "pages", {
         parent: { type: "data_source_id", data_source_id: meals },
-        properties: mealProperties(meal)
+        properties: mealProperties(meal, suppliedTitle ?? sourceRecipe.name)
       });
       return { action: "created", meal_id: page.id, url: page.url };
     },
