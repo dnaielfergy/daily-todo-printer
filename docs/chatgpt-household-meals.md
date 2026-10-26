@@ -45,7 +45,7 @@ Calculation rules:
 
 - Effective meal servings = Weekly Meals `Servings` when positive, else recipe `Servings`. Recipe scaling factor = effective / base. Multiply only clearly numeric ingredient quantities. Preserve unit strings and optionality.
 - **Do not** guess a number for `to taste`, `as needed`, `1 can` without meaningful package assumptions, or other ambiguous text. Flag for approval. Retain specified units; combine like ingredients only with compatible dimensions/units and equivalent preparations. Never silently convert `each` and `lb`.
-- Do not assume pantry inventory or exclude ingredients unless the user explicitly requests it. Identify optional ingredients and substitutions. Use clear shopping amounts and review conflicts.
+- **Pantry inventory is not yet tracked.** Present the complete gross ingredient requirements: do not subtract assumed pantry items or silently drop ingredients. Humans can cross off on-hand items directly on the printed grocery receipt before shopping. Later inventory-based netting is tracked separately in [issue #24](https://github.com/dnaielfergy/daily-todo-printer/issues/24). Identify optional ingredients and substitutions. Use clear shopping amounts and review conflicts.
 - A one-meal week is valid only when it is explicitly presented as the **whole approved printable set** for that week.
 - Breakfast may affect a grocery proposal if explicitly included, but it must never produce a recipe print job under the lunch/dinner v1 contract. State the grocery inclusion scope.
 
@@ -84,6 +84,8 @@ Using the existing connected GitHub app, inspect the **private** `dnaielfergy/ho
 - [ ] Native Recipes database template configured by a human in Notion UI.
 - [ ] User explicitly reviews and approves a **real** complete menu and groceries for a week.
 - [ ] Private GitHub review PR is validated and merged **after** approval.
-- [ ] Windows host imports the approved pinned publication; zero automatic printing.
+- [x] **Premerge Windows runner check:** against private unmerged [review PR #4](https://github.com/dnaielfergy/household-print-inbox/pull/4), a Windows GitHub Actions runner fetched the private branch via a read-only token, preview-validated two jobs, imported both to a separate SQLite file, repeated import idempotently (0 new jobs), rendered recipe and grocery receipts, and confirmed zero print attempts. [Successful run](https://github.com/dnaielfergy/household-print-inbox/actions/runs/40272598690). No private `main` or real Windows host changed.
+- [ ] Physical Windows host acceptance remains separate; user runs isolated-db branch test without changing the live config or production DB. No automatic printing.
+- [ ] After the exact menu and groceries are approved, merge private publication and confirm production import from `main`.
 
 See [github-print-inbox.md](github-print-inbox.md), [recipe-jobs.md](recipe-jobs.md), [grocery-jobs.md](grocery-jobs.md), and [issue #19](https://github.com/dnaielfergy/daily-todo-printer/issues/19).
