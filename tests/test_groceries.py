@@ -244,7 +244,7 @@ class GroceryTests(unittest.TestCase):
         without = files_for(revision=2)
         self.assertEqual(import_snapshot(self.conn, snapshot(without)), 0)
         self.assertEqual(get_grocery_job(self.conn, "shopping-v1")["inbox_active"], 0)
-        with self.assertRaisesRegex(InboxError, "reactivated"):
+        with self.assertRaisesRegex(InboxError, "Immutable job_id"):
             import_snapshot(self.conn, snapshot(files_for(revision=3, grocery_payload=grocery("shopping-v1", 3))))
 
     def test_grocery_path_traversal_mismatch_and_bad_payload_fail_closed(self):
