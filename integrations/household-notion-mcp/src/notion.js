@@ -175,7 +175,7 @@ export function createNotion(env, transport = fetch) {
         ...(cursor ? { start_cursor: cursor } : {})
       });
       return {
-        recipes: data.results.map(recipeSummary),
+        recipes: data.results.map((page) => recipeSummary(page)),
         next_cursor: data.next_cursor
       };
     },
