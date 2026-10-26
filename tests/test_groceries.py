@@ -56,7 +56,7 @@ def recipe():
         "job_id": "monday-lunch",
         "date": "2026-10-26",
         "meal": "lunch",
-        "recipe": {"title": "Rice bowls", "ingredients": [{"name": "Rice", "amount": "1 cup"}],
+        "recipes": [{"title": "Rice bowls", "ingredients": [{"name": "Rice", "amount": "1 cup"}],
                    "steps": ["Cook rice."]},
     }
 
@@ -67,7 +67,7 @@ def files_for(revision=1, grocery_payload=None, include_recipe=True):
         MANIFEST: {
             "schema_version": 1, "week_start": WEEK, "revision": revision,
             "jobs": [RECIPE] if include_recipe else [],
-        },
+        }],
     }
     if include_recipe:
         files[RECIPE] = recipe()
