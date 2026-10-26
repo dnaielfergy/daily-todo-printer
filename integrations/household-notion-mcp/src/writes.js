@@ -108,8 +108,8 @@ export function validateMeal(payload) {
   if (!["Breakfast", "Lunch", "Dinner"].includes(meal_type)) {
     throw new Error("Invalid meal type");
   }
-  if (!Array.isArray(payload.recipe_ids) || !payload.recipe_ids.length || payload.recipe_ids.length > 50) {
-    throw new Error("Meal must link 1-50 recipes");
+  if (!Array.isArray(payload.recipe_ids) || !payload.recipe_ids.length || payload.recipe_ids.length > 12) {
+    throw new Error("Meal must link 1-12 recipes");
   }
   const recipe_ids = payload.recipe_ids.map(assertId);
   if (new Set(recipe_ids).size !== recipe_ids.length) throw new Error("Duplicate linked recipe");
