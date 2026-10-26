@@ -30,7 +30,7 @@ JOB_PATH_PATTERN = re.compile(
     re.ASCII,
 )
 GROCERY_PATH_PATTERN = re.compile(
-    r"weeks/(\\d{4}-\\d{2}-\\d{2})/groceries/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\\.json",
+    r"weeks/(\d{4}-\d{2}-\d{2})/groceries/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.json",
     re.ASCII,
 )
 MAX_FILE_SIZE = 131_072
