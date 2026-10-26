@@ -1,4 +1,4 @@
-name: Household Notion MCP (read-only)
+name: Household Notion MCP (read/write guarded)
 on:
   pull_request:
     paths:
