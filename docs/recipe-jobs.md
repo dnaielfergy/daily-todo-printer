@@ -23,8 +23,10 @@ If the printer errors or the process is interrupted after claiming a job, the st
 - `job_id`: unique external idempotency key (required, letters/digits/dot/underscore/colon/hyphen, max 120 chars). Replays with the same ID and identical content are ignored; changed content must use a new ID.
 - `date`: ISO calendar date `YYYY-MM-DD` (required)
 - `meal`: `lunch` or `dinner` (required)
-- `recipe`: required object containing `title` (string), `ingredients` (nonempty array of `{name, amount?}`), and `steps` (nonempty array of strings). Optional integer fields: `servings`, `prep_minutes`, `cook_minutes`.
+- `recipes`: required nonempty array (1-12) of objects, each containing `title` (string), `ingredients` (nonempty array of `{name, amount?}`), and `steps` (nonempty array of strings). Optional integer fields: `servings`, `prep_minutes`, `cook_minutes`.
 - `source`: optional `{type, reference}` for provenance. Source-specific fields must **not** drive printing.
+
+Each meal job prints one receipt, with a separate ingredients/method section for each recipe; a single-recipe meal uses a one-element `recipes` array. The old singular `recipe` key is intentionally not supported (no published production jobs require migration).
 
 The `amount` field is intentionally human-readable (e.g. `"1 1/2 cups"`): upstream agents handle conversions; the printer doesn't do culinary reasoning. Names, steps, and metadata have size bounds enforced during ingestion.
 
