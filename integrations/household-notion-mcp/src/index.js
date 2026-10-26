@@ -74,6 +74,10 @@ function createServer(env) {
         name: z.string().min(1).max(160),
         servings: z.number().positive().max(100),
         source_url: z.string().max(1000).nullable().optional(),
+        meal_types: z.array(z.string().min(1).max(80)).max(12).optional(),
+        diet: z.array(z.string().min(1).max(80)).max(12).optional(),
+        best_for: z.array(z.string().min(1).max(80)).max(12).optional(),
+        notes: z.string().max(1800).optional(),
         ingredients: z.array(ingredient).min(1).max(50),
         instructions: z.array(z.string().min(1).max(1000)).min(1).max(40)
       },
