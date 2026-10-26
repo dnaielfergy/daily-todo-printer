@@ -6,6 +6,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Callable
 
 from .config import TelegramSettings, TelegramUser
@@ -22,6 +23,7 @@ from .db import (
     set_task_priority,
 )
 from .printer import print_raw_windows
+from .recipes import ensure_jobs_table, print_recipe_job
 from .receipt import escpos_receipt, render_daily_text, render_incoming_task
 
 HELP_TEXT = "\n".join([
@@ -35,6 +37,7 @@ HELP_TEXT = "\n".join([
     "/due 12 clear",
     "/list",
     "/print",
+    "/recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD]",
     "/help",
 ])
 
@@ -106,6 +109,25 @@ def _task_id(raw: str) -> int:
     if task_id < 1:
         raise ValueError(f"Invalid task ID: {raw}")
     return task_id
+
+
+def _recipe_date(value: str | None) -> date:
+    today = date.today()  # Local calendar date of the Windows printer host.
+    if value is None or value.lower() == "today":
+        return today
+    value = value.lower()
+    if value == "tomorrow":
+        return today + timedelta(days=1)
+    weekdays = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+    if value in weekdays:
+        return today - timedelta(days=today.weekday()) + timedelta(days=weekdays.index(value))
+    try:
+        parsed = date.fromisoformat(value)
+        if parsed.isoformat() == value:
+            return parsed
+    except ValueError:
+        pass
+    raise ValueError("Date must be today, tomorrow, a weekday, or YYYY-MM-DD.")
 
 
 class TelegramHandler:
@@ -220,6 +242,45 @@ class TelegramHandler:
                     lines.append(f"#{task.id} [{task.priority}] {task.text}{due}")
                 lines.extend(["", f"{len(tasks)} open"])
                 reply = "\n".join(lines)
+            record_telegram_update(self.conn, update_id, reply)
+            return reply
+
+        if command == "recipe-print":
+            if not 1 <= len(args) <= 2 or args[0].lower() not in {"lunch", "dinner"}:
+                raise ValueError("Usage: /recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD]")
+            meal = args[0].lower()
+            meal_date = _recipe_date(args[1] if len(args) == 2 else None).isoformat()
+            # Only select published, currently active meals; never print obsolete revisions.
+            ensure_jobs_table(self.conn)
+            rows = self.conn.execute(
+                "SELECT job_id, payload_json FROM recipe_print_jobs "
+                "WHERE job_kind = 'recipe' AND inbox_active = 1 AND inbox_week IS NOT NULL"
+            ).fetchall()
+            matches = [row for row in rows if (
+                (job := json.loads(row["payload_json"]))["date"] == meal_date
+                and job["meal"] == meal
+            )]
+            if len(matches) > 1:
+                reply = f"Multiple active {meal} jobs for {meal_date}; nothing printed."
+            elif not matches:
+                reply = f"No published {meal} recipe for {meal_date}. Check recipe sync."
+            else:
+                job_id = matches[0]["job_id"]
+                try:
+                    printed = print_recipe_job(
+                        self.conn, job_id, printer_name=self.settings.printer_name
+                    )
+                    title = " + ".join(
+                        recipe["title"] for recipe in json.loads(matches[0]["payload_json"])["recipes"]
+                    )
+                    reply = (
+                        f"Printed {meal} for {meal_date}: {title}." if printed
+                        else f"Already printed {meal} for {meal_date}: {title}."
+                    )
+                except Exception:
+                    # A spooler error may leave an uncertain receipt. Never auto-retry.
+                    reply = (f"Recipe print failed or needs review for {meal_date} {meal}. "
+                             "Inspect the printer and job status before retrying.")
             record_telegram_update(self.conn, update_id, reply)
             return reply
 
