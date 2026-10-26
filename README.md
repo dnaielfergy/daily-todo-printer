@@ -273,6 +273,10 @@ receipt-todo grocery print 2026-10-26-groceries-example-v1
 
 Use `grocery print JOB_ID --force` only for a deliberate extra copy of an **active** list. The printer never automatically prints when a grocery file arrives. See [grocery-list contract](docs/grocery-jobs.md).
 
+### ChatGPT household meal planning + approval (Phase C)
+
+Use the [Household MCP workflow](docs/chatgpt-household-meals.md) to prepare native Notion recipes and a weekly meal plan, present the **full** menu and groceries for explicit approval, and publish only through a reviewed PR in the private print inbox. Notion edits do not publish. The Windows importer never automatically prints. The native Notion Recipes template needs one manual setup in the Notion UI; ChatGPT-created recipes already use the approved blocks. See [#19](https://github.com/dnaielfergy/daily-todo-printer/issues/19).
+
 ### Private GitHub print inbox (Phase A transport + B1/B2 revisions)
 
 Approved recipe and grocery snapshots can be published to the **private** `household-print-inbox` repository. The Windows host reads them using a narrow **read-only** token and imports validated jobs into the existing SQLite database:
