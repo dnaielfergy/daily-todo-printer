@@ -108,8 +108,11 @@ def load_recipe_inbox_settings(path: Path) -> RecipeInboxSettings:
     token = os.getenv("RECIPE_INBOX_TOKEN") or str(inbox.get("token", "")).strip()
     if not token:
         raise ValueError("Set RECIPE_INBOX_TOKEN or recipe_inbox.token")
+    repo = str(inbox.get("repo", "")).strip()
+    if not repo:
+        raise ValueError("Set recipe_inbox.repo in your private config")
     return RecipeInboxSettings(
-        repo=str(inbox.get("repo", "dnaielfergy/household-print-inbox")).strip(),
+        repo=repo,
         ref=str(inbox.get("ref", "main")).strip(),
         token=token,
     )
