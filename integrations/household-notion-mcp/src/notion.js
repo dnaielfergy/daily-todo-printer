@@ -94,15 +94,16 @@ export function weeklyMeal(page) {
   const servings = p.Servings?.number ?? null;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
       !["Breakfast", "Lunch", "Dinner"].includes(mealType) ||
-      !Array.isArray(relation) || relation.length !== 1 ||
+      !Array.isArray(relation) || relation.length < 1 || relation.length > 50 || relation.some((entry) => !entry?.id) ||
+      new Set(relation.map((entry) => assertId(entry.id))).size !== relation.length ||
       (servings !== null && (!Number.isFinite(servings) || servings <= 0))) {
-    throw new Error("Weekly meal needs Date, Meal Type, one Meal Link and optional positive Servings");
+    throw new Error("Weekly meal needs Date, Meal Type, one or more unique Meal Links and optional positive Servings");
   }
   return {
     id: page.id,
     date,
     meal_type: mealType,
-    recipe_id: relation[0].id,
+    recipe_ids: relation.map((entry) => entry.id),
     servings,
     printable: mealType !== "Breakfast",
     ...(page.last_edited_time ? { last_edited_time: page.last_edited_time } : {})
