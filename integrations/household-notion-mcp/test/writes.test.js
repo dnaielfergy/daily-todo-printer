@@ -213,6 +213,7 @@ test("weekly meal saves only after recipe is complete and checks slot conflicts"
   assert.equal(saved.action, "created");
   const post = fixture.calls.find((c) => c.path === "/v1/pages" && c.method === "POST");
   assert.equal(post.body.parent.data_source_id, normal(id(2)));
+  assert.equal(post.body.properties.Meal.title[0].text.content, "Fictional Bowl");
   assert.deepEqual(post.body.properties["Meal link"].relation, [{ id: normal(id(3)) }]);
   fixture.state.mealMatches = [{ id: fixture.mealId }];
   await assert.rejects(() => writer.saveWeeklyMeal({
@@ -235,6 +236,9 @@ test("weekly meal updates require fresh edit token and matching meal source", as
     date: "2026-11-02", meal_type: "Dinner", recipe_id: fixture.pageId
   });
   assert.equal(updated.action, "updated");
+  const edit = fixture.calls.find((c) => c.method === "PATCH");
+  assert.equal(edit.body.properties.Meal, undefined,
+    "A serving-only edit must not overwrite manually set meal titles");
 });
 
 test("remove weekly meal archives only authorized scoped page", async () => {
