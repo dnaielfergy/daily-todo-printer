@@ -2,9 +2,9 @@
 
 **Reference implementation validated through a restricted Access-protected deployment.** This Cloudflare Worker connects ChatGPT to the existing household Notion Recipes and Weekly Meals databases. It exposes **three read tools** and three working-state write tools gated by the `ENABLE_NOTION_WRITES=true` runtime binding. The live read/write fictional-data acceptance checks passed; the publishing approval gate remains separate.
 
-To reproduce the setup safely (schema, Notion integration, Access, QA and secrets), follow the [generic Notion integration setup guide](../../docs/notion-integration-setup.md). This public repository contains no deployment hostname, Notion data source IDs or credentials.
+To reproduce the setup safely (schema, Notion integration, Access, QA and secrets), follow the [generic Notion integration setup guide](docs/notion-integration-setup.md). This public repository contains no deployment hostname, Notion data source IDs or credentials.
 
-The editable Notion plan and the approved GitHub print snapshots are independent. Writing a meal assignment or recipe **does not publish, print, or cancel an approved grocery/meal receipt**. Publishing requires an explicit review and approval through the private GitHub inbox workflow; see [the ChatGPT household meals playbook](../../docs/chatgpt-household-meals.md).
+The editable Notion plan and the approved GitHub print snapshots are independent. Writing a meal assignment or recipe **does not publish, print, or cancel an approved grocery/meal receipt**. Publishing requires an explicit review and approval through the private GitHub inbox workflow; see [the ChatGPT household meals playbook](skills/household-meal-planning/SKILL.md).
 
 ## Approved Notion schema
 
@@ -100,3 +100,21 @@ The Wrangler config has `workers_dev: false` and `keep_vars: true` to preserve d
 Set ENABLE_NOTION_WRITES=false, revoke or rotate Notion credentials, and/or disable the Cloudflare Access app. No production Windows, SQLite, or receipt schedule modifications are needed.
 
 **Live acceptance:** Cloudflare Worker and OAuth connection were deployed; a real reference recipe was read without editing it. A clearly labeled fictional recipe was created/edited and a fictional weekly meal created/updated/archived. No live Windows printing or GitHub publication was performed; do not treat a Notion write as publication approval. The fictional recipe remains clearly labeled for user cleanup.
+
+## Combined ChatGPT plugin
+
+See [official-format packaging and acceptance steps](docs/plugin-packaging.md). This plugin combines the existing Cloudflare Access/OAuth-protected MCP **and** the bundled household-meal-planning Skill through the existing registered MCP connection mapping. The portable manifest is [plugin.json](plugin.json); the required workspace-specific `.app.json` connection mapping must be created privately using the official plugin creator and is ignored by Git. No new OAuth client or independent Skill install is needed once the complete plugin package is installed. Git merge alone and Cloudflare deployment alone never installs a ChatGPT Skill. Test the web runtime separately from desktop/local marketplace behavior.
+
+Private policy is retrieved at runtime through the authorized GitHub connector, not bundled. Worker instructions are advisory; verify them in an authenticated initialize response.
+
+## Manual acceptance matrix (no production side effects)
+
+1. In a fresh ChatGPT chat with Skill installed and both connectors enabled, ask to list available skills and read household-meal-planning. Confirm referenced files can be opened. Test a recipe-only read independently of private policy.
+2. Using the GitHub connector, read the configured private `main:policies/household.md`; check private visibility, exact path, freshness and that policy applies to groceries only. Deny/revoke GitHub access and confirm a grocery request fails closed but recipe reads remain usable. Repeat with missing/malformed policy in an isolated fixture repo.
+3. Edit only a disposable private policy fixture; repeat read in a new chat and confirm the change is used immediately without Worker deployment or Skill reinstall. Do not edit real policy merely for a test.
+4. With fictional recipes, scale a two-recipe meal from independent base yields to a common meal serving override; test leftovers consumed on another day, unresolved quantities, a breakfast slot, and zero unintended duplicate purchases.
+5. With test-only fictional ingredients including basic seasonings, oil, named peppers, pepper flakes, spice blends and another oil, verify private exclusion applies only to shopping list, never recipe ingredients/steps. Do not replace real private rules with fixture rules.
+6. Inspect MCP `tools/list` descriptions and `initialize` response for `instructions` in an authorized client; verify Access denial, the write switch and scope. Server instructions support must be measured against the deployed SDK/runtime, not inferred solely from code.
+7. Validate review-branch-only synthetic JSON using printer tests, ensure PR remains unmerged and root `inbox.json` unchanged. No Windows sync or physical printing.
+
+The full historical integration notes live in [integration docs](docs/household-meals-legacy.md); canonical schema/setup is [here](docs/notion-integration-setup.md).

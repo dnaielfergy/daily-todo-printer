@@ -1,0 +1,7 @@
+# Recipes (working Notion)
+
+Use Household MCP `list_recipes` (paginate `next_cursor`) and `get_recipe`. Exclude marked TEST ONLY fixtures from real selections. A list entry's preparedness is not proof of complete recipe: fetch every selected recipe. Positive base `Servings`, a native `Ingredients` heading, a native four-column simple table (`Ingredient | Quantity | Unit | Notes`) with valid rows, and `Instructions` with numbered-list steps are mandatory. Preserve quantities, units, cooking details and source URL accurately; never invent inaccessible ingredients.
+
+For create, use `save_recipe` without recipe_id, passing full ingredient and instruction lists. The API does not automatically apply a default Notion UI template; the tool creates native blocks. For populate/revise, use recipe_id + `expected_last_edited_time` from a fresh `list_recipes` (incomplete) or `get_recipe` (complete). Submit **full replacement** managed ingredient/steps content, not incremental partial lists. Preserve unrelated page notes and omitted optional fields; empty optional tags and null URL intentionally clear them. Reject ambiguous/malformed layouts and stale writes; inspect partially applied Notion block writes before retry. Verify through `get_recipe` after saving. Source URL is not a substitute for structured content.
+
+A recipe read or save **does not** publish a job. Keep pantry staples in recipe ingredients and cooking directions even if current private policy excludes them from the *grocery output*.
