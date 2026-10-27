@@ -262,7 +262,7 @@ See [recipe job contract](docs/recipe-jobs.md) for validation, retry safety, and
 
 ### Print approved recipes from Telegram
 
-For Telegram users already in the configured allowlist, the bot can print an **already-imported, currently active** lunch or dinner receipt:
+For Telegram users already in the configured allowlist, the bot can print an **already-imported, currently active** lunch or dinner receipt, including explicitly requested extra copies:
 
 ```text
 /recipe-print lunch
@@ -270,11 +270,14 @@ For Telegram users already in the configured allowlist, the bot can print an **a
 /recipe-print lunch tomorrow
 /recipe-print dinner friday
 /recipe-print lunch 2026-10-29
+/recipe-print lunch --force
+/recipe-print dinner today --force
+/recipe-print lunch monday --force
 ```
 
 Without a date, the command selects **today** using the Windows host's local calendar. `today`, `tomorrow`, and full weekday names (`monday` through `sunday`) are accepted; weekdays refer to the **current Monday-Sunday calendar week**. Use `YYYY-MM-DD` to select a day in another week. Each request selects the currently active, GitHub-approved meal job by its date and meal type, including combined recipes and leftover receipts. If no approved job exists (or sync has not imported it), the bot responds without printing. A conflicting duplicate slot also fails closed.
 
-Telegram reuses the regular SQLite print-once lock, withdrawal checks and print history. Repeated Telegram updates do not print a second copy; a separately issued command reports `Already printed`. No `--force` or automatic retry is supported through Telegram. For a deliberate extra copy or recovery from an uncertain printer handoff, inspect the physical printer first and use the existing local `recipe print JOB_ID --force` / `recipe requeue JOB_ID` workflow as appropriate. The `/print` command continues to print the todo list; groceries remain on demand through the local CLI. No scheduled recipe printing is installed.
+Telegram reuses the regular SQLite print-once lock, withdrawal checks and print history. Repeated Telegram updates do not print a second copy; an ordinary new request for an already printed job reports `Already printed` with a hint to use `--force`. Add `--force` to explicitly reprint an **active, already printed** job. It also works when the job is still queued; in either case it uses the existing printer transaction and increments print history only after successful spooler handoff. `--force` does **not** reprint withdrawn jobs or bypass `printing` / `needs_review` states: after an uncertain printer handoff, inspect the physical printer and use the local `recipe requeue JOB_ID` recovery procedure as appropriate. Telegram never retries automatically. The first argument must always be `lunch` or `dinner`: `/recipe-print today` alone is not a supported command (use `/recipe-print lunch today` or `/recipe-print dinner today`). The `/print` command continues to print the todo list; groceries remain on demand through the local CLI. No scheduled recipe printing is installed.
 
 After deploying updated code to the Windows host, **restart the existing Telegram listener** so it loads the new command. No new scheduled task or Notion integration is required.
 

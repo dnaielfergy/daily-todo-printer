@@ -37,7 +37,7 @@ HELP_TEXT = "\n".join([
     "/due 12 clear",
     "/list",
     "/print",
-    "/recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD]",
+    "/recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD] [--force]",
     "/help",
 ])
 
@@ -246,14 +246,18 @@ class TelegramHandler:
             return reply
 
         if command == "recipe-print":
-            if not 1 <= len(args) <= 2 or args[0].lower() not in {"lunch", "dinner"}:
-                raise ValueError("Usage: /recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD]")
-            meal = args[0].lower()
-            meal_date = _recipe_date(args[1] if len(args) == 2 else None).isoformat()
+            usage = "Usage: /recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD] [--force]"
+            force = "--force" in args
+            selectors = [arg for arg in args if arg != "--force"]
+            if (args.count("--force") > 1 or not 1 <= len(selectors) <= 2
+                    or selectors[0].lower() not in {"lunch", "dinner"}):
+                raise ValueError(usage)
+            meal = selectors[0].lower()
+            meal_date = _recipe_date(selectors[1] if len(selectors) == 2 else None).isoformat()
             # Only select published, currently active meals; never print obsolete revisions.
             ensure_jobs_table(self.conn)
             rows = self.conn.execute(
-                "SELECT job_id, payload_json FROM recipe_print_jobs "
+                "SELECT job_id, payload_json, status FROM recipe_print_jobs "
                 "WHERE job_kind = 'recipe' AND inbox_active = 1 AND inbox_week IS NOT NULL"
             ).fetchall()
             matches = [row for row in rows if (
@@ -267,16 +271,19 @@ class TelegramHandler:
             else:
                 job_id = matches[0]["job_id"]
                 try:
+                    was_printed = matches[0]["status"] == "printed"
                     printed = print_recipe_job(
-                        self.conn, job_id, printer_name=self.settings.printer_name
+                        self.conn, job_id, printer_name=self.settings.printer_name, force=force
                     )
                     title = " + ".join(
                         recipe["title"] for recipe in json.loads(matches[0]["payload_json"])["recipes"]
                     )
-                    reply = (
-                        f"Printed {meal} for {meal_date}: {title}." if printed
-                        else f"Already printed {meal} for {meal_date}: {title}."
-                    )
+                    if printed:
+                        action = "Reprinted" if force and was_printed else "Printed"
+                        reply = f"{action} {meal} for {meal_date}: {title}."
+                    else:
+                        reply = (f"Already printed {meal} for {meal_date}: {title}. "
+                                 "Add --force for another copy.")
                 except Exception:
                     # A spooler error may leave an uncertain receipt. Never auto-retry.
                     reply = (f"Recipe print failed or needs review for {meal_date} {meal}. "
