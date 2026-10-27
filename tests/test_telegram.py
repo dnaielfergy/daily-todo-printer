@@ -212,13 +212,78 @@ alias = "sam"
         self.assertIn("Not authorized", self.handler.handle(update(106, 999, "/recipe-print lunch")).reply or "")
         for number, command in enumerate((
             "/recipe-print", "/recipe-print breakfast",
-            "/recipe-print lunch --force", "/recipe-print lunch 2026-99-99",
+            "/recipe-print lunch --force --force", "/recipe-print lunch 2026-99-99",
             "/recipe-print dinner tomorrow extra",
         ), start=107):
             self.assertTrue(self.handler.handle(update(number, 101, command)).reply)
         self.assertIn("No published dinner", self.handler.handle(update(112, 101, "/recipe-print dinner")).reply or "")
         self.assertEqual(self.prints, [])
         self.assertEqual(self.conn.execute("SELECT count(*) FROM recipe_print_jobs WHERE status='printed'").fetchone()[0], 0)
+
+    def test_recipe_print_force_reprints_and_tracks_history(self) -> None:
+        job_id = self._published_meal(date.today())
+        with patch("receipt_todo.recipes.print_raw_windows", side_effect=lambda b, n: self.prints.append((b, n))):
+            initial = self.handler.handle(update(201, 101, "/recipe-print lunch"))
+            normal = self.handler.handle(update(202, 101, "/recipe-print lunch"))
+            forced = self.handler.handle(update(203, 101, "/recipe-print lunch --force"))
+            same_update = self.handler.handle(update(203, 101, "/recipe-print lunch --force"))
+            explicit = self.handler.handle(update(204, 101, "/recipe-print lunch today --force"))
+        self.assertIn("Printed lunch", initial.reply or "")
+        self.assertIn("Add --force", normal.reply or "")
+        self.assertIn("Reprinted lunch", forced.reply or "")
+        self.assertTrue(same_update.duplicate)
+        self.assertIn("Reprinted lunch", explicit.reply or "")
+        self.assertEqual(len(self.prints), 3)
+        row = self.conn.execute(
+            "SELECT status, print_count FROM recipe_print_jobs WHERE job_id=?", (job_id,)
+        ).fetchone()
+        self.assertEqual((row["status"], row["print_count"]), ("printed", 3))
+
+    def test_recipe_print_force_date_order_and_queued_job(self) -> None:
+        tomorrow = date.today() + timedelta(days=1)
+        job_id = self._published_meal(tomorrow, "dinner")
+        with patch("receipt_todo.recipes.print_raw_windows", side_effect=lambda b, n: self.prints.append((b, n))):
+            first = self.handler.handle(update(205, 101, "/recipe-print dinner --force tomorrow"))
+            second = self.handler.handle(update(206, 101, f"/recipe-print dinner {tomorrow.isoformat()} --force"))
+        self.assertIn("Printed dinner", first.reply or "")
+        self.assertIn("Reprinted dinner", second.reply or "")
+        self.assertEqual(len(self.prints), 2)
+        self.assertEqual(self.conn.execute(
+            "SELECT print_count FROM recipe_print_jobs WHERE job_id=?", (job_id,)
+        ).fetchone()[0], 2)
+
+    def test_recipe_print_force_keeps_authorization_and_validation(self) -> None:
+        job_id = self._published_meal(date.today())
+        unauthorized = self.handler.handle(update(207, 999, "/recipe-print lunch --force"))
+        self.assertIn("Not authorized", unauthorized.reply or "")
+        for n, command in enumerate((
+            "/recipe-print today --force",
+            "/recipe-print lunch --force --force",
+            "/recipe-print lunch tomorrow extra --force",
+            "/recipe-print lunch 2026-99-99 --force",
+        ), start=208):
+            self.assertTrue(self.handler.handle(update(n, 101, command)).reply)
+        self.assertFalse(self.prints)
+        self.assertEqual(self.conn.execute(
+            "SELECT status FROM recipe_print_jobs WHERE job_id=?", (job_id,)
+        ).fetchone()[0], "queued")
+
+    def test_recipe_print_force_does_not_override_withdrawal_or_uncertain(self) -> None:
+        job_id = self._published_meal(date.today(), active=False)
+        reply = self.handler.handle(update(212, 101, "/recipe-print lunch --force"))
+        self.assertIn("No published", reply.reply or "")
+        with self.conn:
+            self.conn.execute(
+                "UPDATE recipe_print_jobs SET inbox_active=1, status='needs_review' WHERE job_id=?",
+                (job_id,)
+            )
+        with patch("receipt_todo.recipes.print_raw_windows") as spool:
+            reply = self.handler.handle(update(213, 101, "/recipe-print lunch --force"))
+        self.assertIn("needs review", reply.reply or "")
+        spool.assert_not_called()
+        self.assertEqual(self.conn.execute(
+            "SELECT status FROM recipe_print_jobs WHERE job_id=?", (job_id,)
+        ).fetchone()[0], "needs_review")
 
     def test_recipe_print_excludes_withdrawn_and_manual_jobs(self) -> None:
         self._published_meal(date.today(), active=False)
