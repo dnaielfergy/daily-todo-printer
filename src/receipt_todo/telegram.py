@@ -37,7 +37,7 @@ HELP_TEXT = "\n".join([
     "/due 12 clear",
     "/list",
     "/print",
-    "/recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD] [--force]", 
+    "/recipe-print lunch|dinner [today|tomorrow|weekday|YYYY-MM-DD] [--force]",
     "/help",
 ])
 
